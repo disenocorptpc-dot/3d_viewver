@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visor Técnico - Engine Core v3</title>
+    <title>Visor Técnico - Engine Core v3.1</title>
     <link rel="stylesheet" href="styles.css">
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap"
@@ -22,33 +22,45 @@
 
 <body>
 
-    <!-- ZONA DE IMPRESIÓN (OCULTA EN PANTALLA) -->
+    <!-- ZONA DE IMPRESIÓN MEJORADA -->
     <div id="print-layout">
         <div class="print-header">
-            <h1>REPORTE TÉCNICO DE ENSAMBLAJE</h1>
-            <p>Generado por EngineCore v3</p>
+            <div class="print-logo">💠 ENGINE<b>CORE</b> REPORT</div>
+            <div class="print-meta">
+                <p>Fecha: <span id="print-date">--/--/----</span></p>
+                <p>Ref: <span id="print-filename">Sin Archivo</span></p>
+            </div>
         </div>
-        <div class="print-image-container">
-            <img id="print-snapshot" src="" alt="Vista 3D Capturada">
+
+        <div class="print-content">
+            <!-- La imagen capturada irá aquí -->
+            <img id="print-snapshot" src="" alt="Vista 3D">
+
+            <!-- Las observaciones irán aquí -->
+            <div class="print-notes-section">
+                <h3>OBSERVACIONES TÉCNICAS:</h3>
+                <p id="print-notes-dest">Sin observaciones registradas.</p>
+            </div>
         </div>
+
         <div class="print-footer">
-            <p>Documento de uso interno - DisenoCorp</p>
+            <p>Generado automáticamente por EngineCore 3D Web Viewer - DisenoCorp</p>
         </div>
     </div>
 
-    <!-- INTERFAZ DE USUARIO -->
+    <!-- APP INTERFACE -->
     <div class="app-container no-print">
 
         <header class="top-bar">
             <div class="logo">
-                <span class="icon">💠</span> ENGINE<b>CORE</b>_V3
+                <span class="icon">💠</span> ENGINE<b>CORE</b>_V3.1
             </div>
             <div class="actions">
                 <button class="btn-tech" id="btn-screenshot">
-                    📸 Capturar Vista
+                    📸 Capturar (PNG Transparente)
                 </button>
                 <button class="btn-primary" onclick="window.print()">
-                    🖨️ Imprimir
+                    🖨️ Imprimir PDF
                 </button>
             </div>
         </header>
@@ -57,22 +69,24 @@
 
             <section class="info-panel glass-panel">
                 <div class="panel-header">
-                    <h2>CONTROLES DE VISUALIZACIÓN</h2>
+                    <h2>VISUALIZACIÓN</h2>
                 </div>
 
                 <div class="tools-grid">
-                    <button class="tool-btn active" id="mode-original">🎨 Original</button>
+                    <button class="tool-btn active" id="mode-original">🎨 Render</button>
                     <button class="tool-btn" id="mode-clay">🏳️ Clay</button>
                     <button class="tool-btn" id="mode-wire">🕸️ Wire</button>
                 </div>
 
-                <div class="description">
-                    <h3>ESTADO DEL SISTEMA</h3>
-                    <p id="system-status">Esperando modelo...</p>
+                <div class="panel-header" style="margin-top: 20px;">
+                    <h2>BITÁCORA / NOTAS</h2>
                 </div>
+                <textarea id="notes-input"
+                    placeholder="Escribe aquí las observaciones para el reporte (ej. Materiales, Acabados, Instrucciones de ensamblaje)..."></textarea>
 
-                <div class="tech-readout">
-                    <div id="debug-console">Iniciando v3.0...</div>
+
+                <div class="description" style="margin-top:auto">
+                    <p id="system-status">Esperando modelo...</p>
                 </div>
             </section>
 
@@ -83,7 +97,7 @@
                 </div>
 
                 <div class="viewer-controls glass-panel">
-                    <span style="font-size: 0.8rem; color: var(--text-secondary);">SECUENCIA:</span>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">EXPLOSIÓN:</span>
                     <input type="range" id="explosion-slider" min="0" max="100" value="0" class="tech-slider">
                     <span id="slider-val">0%</span>
                 </div>

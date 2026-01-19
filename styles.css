@@ -22,13 +22,13 @@ body {
     overflow: hidden;
 }
 
-/* --- LAYOUT PRINT (OCULTO) --- */
+/* --- PRINT LAYOUT (Solo visible al imprimir) --- */
 #print-layout {
     display: none;
-    /* Oculto en pantalla */
     background: white;
-    color: black;
-    padding: 2cm;
+    color: #333;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
 }
 
 /* --- APP LAYOUT --- */
@@ -43,10 +43,9 @@ body {
     background: var(--panel-bg);
     border-bottom: var(--border);
     display: flex;
-    align-items: center;
+    alignItems: center;
     justify-content: space-between;
     padding: 0 20px;
-    backdrop-filter: blur(10px);
 }
 
 .logo {
@@ -95,9 +94,9 @@ button:hover {
     position: relative;
 }
 
-/* --- SIDEBAR --- */
+/* SIDEBAR */
 .info-panel {
-    width: 300px;
+    width: 320px;
     background: var(--panel-bg);
     border-right: var(--border);
     backdrop-filter: blur(20px);
@@ -113,20 +112,9 @@ h2 {
     color: var(--accent);
     margin-bottom: 10px;
     letter-spacing: 1px;
+    font-weight: 700;
 }
 
-h3 {
-    font-size: 0.9rem;
-    margin-bottom: 5px;
-}
-
-p {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    line-height: 1.5;
-}
-
-/* TOOLS GRID (NUEVO) */
 .tools-grid {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -134,7 +122,7 @@ p {
 }
 
 .tool-btn {
-    padding: 10px 5px;
+    padding: 8px 0;
     font-size: 0.7rem;
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -146,19 +134,24 @@ p {
     color: var(--accent);
 }
 
-.tech-readout {
-    margin-top: auto;
-    background: #000;
-    padding: 10px;
-    border: 1px solid #333;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    color: #0f0;
+textarea#notes-input {
+    width: 100%;
     height: 150px;
-    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text-primary);
+    border: var(--border);
+    padding: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    resize: none;
+    outline: none;
 }
 
-/* --- VIEWER --- */
+textarea#notes-input:focus {
+    border-color: var(--accent);
+}
+
+/* VIEWER */
 .viewer-container {
     flex: 1;
     position: relative;
@@ -174,8 +167,8 @@ p {
     height: 100%;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    alignItems: center;
+    justifyContent: center;
     background: rgba(0, 0, 0, 0.8);
     pointer-events: none;
     z-index: 5;
@@ -211,7 +204,7 @@ p {
     padding: 15px 30px;
     border-radius: 30px;
     display: flex;
-    align-items: center;
+    alignItems: center;
     gap: 15px;
     width: 400px;
 }
@@ -229,8 +222,14 @@ span#slider-val {
     text-align: right;
 }
 
-/* --- PRINT MEDIA QUERY --- */
+/* --- REGLAS DE IMPRESIÓN PRO --- */
 @media print {
+    @page {
+        margin: 1cm;
+        size: landscape;
+    }
+
+    /* Hoja Horizontal */
     body {
         background: white;
         height: auto;
@@ -241,30 +240,69 @@ span#slider-val {
         display: none !important;
     }
 
-    /* Ocultar app */
-
     #print-layout {
         display: block;
-        /* Mostrar hoja de reporte */
+        width: 100%;
         height: 100%;
     }
 
     .print-header {
-        text-align: center;
+        display: flex;
+        justify-content: space-between;
         border-bottom: 2px solid #000;
-        padding-bottom: 20px;
+        padding-bottom: 10px;
         margin-bottom: 20px;
     }
 
-    .print-image-container img {
-        width: 100%;
-        border: 1px solid #ddd;
+    .print-logo {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .print-meta {
+        text-align: right;
+        font-size: 0.8rem;
+        color: #555;
+    }
+
+    /* IMAGEN LIMPIA */
+    #print-snapshot {
+        display: block;
+        width: 80%;
+        margin: 0 auto 20px auto;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        /* La imagen ya viene transparente desde JS */
+    }
+
+    .print-notes-section {
+        border-top: 1px dashed #aaa;
+        padding-top: 15px;
+        margin-top: 10px;
+    }
+
+    .print-notes-section h3 {
+        font-size: 1rem;
+        margin-bottom: 10px;
+        color: #000;
+    }
+
+    #print-notes-dest {
+        white-space: pre-wrap;
+        /* Respetar saltos de linea */
+        font-size: 0.9rem;
+        line-height: 1.4;
+        color: #333;
     }
 
     .print-footer {
-        margin-top: 20px;
+        position: fixed;
+        bottom: 0;
+        width: 100%;
         text-align: center;
-        font-size: 0.8rem;
-        color: #666;
+        font-size: 0.7rem;
+        color: #999;
+        border-top: 1px solid #eee;
+        padding-top: 10px;
     }
 }
