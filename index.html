@@ -4,13 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visor Técnico - Dark Tech (Three.js)</title>
+    <title>Visor Técnico - Engine Core v3</title>
     <link rel="stylesheet" href="styles.css">
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap"
         rel="stylesheet">
 
-    <!-- Import Map: La forma moderna de usar Three.js sin instalar nada -->
     <script type="importmap">
         {
             "imports": {
@@ -23,15 +22,33 @@
 
 <body>
 
-    <div class="app-container">
+    <!-- ZONA DE IMPRESIÓN (OCULTA EN PANTALLA) -->
+    <div id="print-layout">
+        <div class="print-header">
+            <h1>REPORTE TÉCNICO DE ENSAMBLAJE</h1>
+            <p>Generado por EngineCore v3</p>
+        </div>
+        <div class="print-image-container">
+            <img id="print-snapshot" src="" alt="Vista 3D Capturada">
+        </div>
+        <div class="print-footer">
+            <p>Documento de uso interno - DisenoCorp</p>
+        </div>
+    </div>
+
+    <!-- INTERFAZ DE USUARIO -->
+    <div class="app-container no-print">
 
         <header class="top-bar">
             <div class="logo">
-                <span class="icon">💠</span> ENGINE<b>CORE</b>_V2
+                <span class="icon">💠</span> ENGINE<b>CORE</b>_V3
             </div>
             <div class="actions">
-                <button class="btn-tech" onclick="window.print()">
-                    🖨️ Imprimir Reporte
+                <button class="btn-tech" id="btn-screenshot">
+                    📸 Capturar Vista
+                </button>
+                <button class="btn-primary" onclick="window.print()">
+                    🖨️ Imprimir
                 </button>
             </div>
         </header>
@@ -40,49 +57,33 @@
 
             <section class="info-panel glass-panel">
                 <div class="panel-header">
-                    <h2>ESPECIFICACIONES</h2>
-                    <div class="status-indicator active"></div>
+                    <h2>CONTROLES DE VISUALIZACIÓN</h2>
                 </div>
 
-                <div class="data-grid">
-                    <div class="data-item">
-                        <label>MODELO</label>
-                        <span>X-200 Assembly</span>
-                    </div>
-                    <div class="data-item">
-                        <label>FORMATO</label>
-                        <span>GLB / glTF</span>
-                    </div>
-                    <div class="data-item">
-                        <label>ESTADO</label>
-                        <span style="color: #00ff88;">READY</span>
-                    </div>
-                    <div class="data-item">
-                        <label>CAPAS</label>
-                        <span>Detectadas</span>
-                    </div>
+                <div class="tools-grid">
+                    <button class="tool-btn active" id="mode-original">🎨 Original</button>
+                    <button class="tool-btn" id="mode-clay">🏳️ Clay</button>
+                    <button class="tool-btn" id="mode-wire">🕸️ Wire</button>
                 </div>
 
                 <div class="description">
-                    <h3>CONTROL DE DESPIECE</h3>
-                    <p>Utiliza el slider inferior para controlar la secuencia de ensamblaje generada en Blender (0% a
-                        100%).</p>
+                    <h3>ESTADO DEL SISTEMA</h3>
+                    <p id="system-status">Esperando modelo...</p>
                 </div>
 
                 <div class="tech-readout">
-                    <div id="debug-console">Iniciando motor gráfico...</div>
+                    <div id="debug-console">Iniciando v3.0...</div>
                 </div>
             </section>
 
             <section class="viewer-container" id="scene-container">
-                <!-- El Canvas 3D se inyectará aquí automáticamente -->
                 <div id="loading-overlay">
                     <div class="crosshair"></div>
-                    <p>CARGANDO GEOMETRÍA...</p>
+                    <p>ARRASTRA TU .GLB AQUÍ</p>
                 </div>
 
                 <div class="viewer-controls glass-panel">
-                    <span style="font-size: 0.8rem; color: var(--text-secondary);">EXPLOSIÓN:</span>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">SECUENCIA:</span>
                     <input type="range" id="explosion-slider" min="0" max="100" value="0" class="tech-slider">
                     <span id="slider-val">0%</span>
                 </div>
@@ -91,7 +92,6 @@
         </main>
     </div>
 
-    <!-- Script tipo Módulo para poder usar imports -->
     <script type="module" src="app.js"></script>
 </body>
 
