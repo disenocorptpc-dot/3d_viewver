@@ -7,7 +7,7 @@ const BG_COLOR = 0x0f1115;
 
 // --- VARIABLES GLOBALES ---
 let camera, scene, renderer, mixer;
-let allActions = []; // ARRAY PARA GUARDAR TODAS LAS ANIMACIONES
+let allActions = [];
 let currentModel = null;
 
 // UI Elements
@@ -79,33 +79,35 @@ function init() {
 
     setupTestCube();
 
-    // UI Events
     window.addEventListener('resize', onWindowResize);
 
-    // SLIDER MAESTRO: CONTROLAR TODAS LAS ANIMACIONES
+    // --- SLIDER LOGIC FIX (FORCE TRACKS) ---
     slider.addEventListener('input', (e) => {
         const percent = parseFloat(e.target.value);
         sliderVal.innerText = percent + '%';
 
         if (mixer && allActions.length > 0) {
-            // Buscamos la duración máxima para sincronizar
+            // Buscamos duración máxima
             let maxDuration = 0;
             allActions.forEach(action => {
                 if (action.getClip().duration > maxDuration) maxDuration = action.getClip().duration;
             });
 
-            const time = maxDuration * (percent / 100);
+            if (maxDuration === 0) return; // Evitar errores
 
-            // Aplicar tiempo a TODAS las acciones
-            // mixer.setTime es global, pero a veces es mejor iterar para asegurar
-            mixer.setTime(time);
+            const targetTime = maxDuration * (percent / 100);
 
-            // Forzamos actualización visual
+            // FUERZA BRUTA: Asigna el tiempo manualmente a cada acción individual
+            allActions.forEach(action => {
+                action.time = targetTime;
+            });
+
+            // Actualiza el mixer para que renderice el cambio
             mixer.update(0);
         }
     });
 
-    log('Listo v2. Arrastra tu .GLB aquí.');
+    log('Listo v2.1. Arrastra tu .GLB aquí.');
 }
 
 function loadLocalFile(file) {
@@ -118,8 +120,8 @@ function loadLocalFile(file) {
     loader.load(url, function (gltf) {
         if (currentModel) {
             scene.remove(currentModel);
-            mixer = null; // Matar mixer anterior
-            allActions = []; // Limpiar acciones
+            mixer = null;
+            allActions = [];
         }
 
         const model = gltf.scene;
@@ -133,23 +135,25 @@ function loadLocalFile(file) {
             }
         });
 
+        // Centrar
         const box = new THREE.Box3().setFromObject(model);
         model.position.sub(box.getCenter(new THREE.Vector3()));
 
         loadingDiv.style.display = 'none';
 
-        // --- SISTEMA MULTI-PISTA ---
+        // --- CARGA DE ANIMACIONES ---
         if (gltf.animations && gltf.animations.length > 0) {
             mixer = new THREE.AnimationMixer(model);
-            allActions = []; // Reset
+            allActions = [];
 
-            log(`Detectadas ${gltf.animations.length} pistas de animación.`);
+            log(`Controlando ${gltf.animations.length} pistas.`);
 
-            // Iterar por TODAS las pistas encontradas (no solo la 0)
             gltf.animations.forEach(clip => {
+                // Hacer el clip LoopOnce y Clamp para que no salte al final
                 const action = mixer.clipAction(clip);
+                action.setLoop(THREE.LoopOnce);
+                action.clampWhenFinished = true;
                 action.play();
-                action.paused = true; // Control manual
                 allActions.push(action);
             });
 
@@ -158,11 +162,11 @@ function loadLocalFile(file) {
             sliderVal.innerText = '0%';
 
             // Set inicial
-            mixer.setTime(0);
+            allActions.forEach(action => action.time = 0);
             mixer.update(0);
 
         } else {
-            log('Modelo sin animación.');
+            log('Modelo sin mov. (Check "Animation" en Blender export)');
         }
 
         URL.revokeObjectURL(url);
@@ -180,8 +184,6 @@ function setupTestCube() {
     currentModel = new THREE.Mesh(geometry, material);
     currentModel.position.y = 1;
     scene.add(currentModel);
-
-    // Demo simple
     slider.addEventListener('input', (e) => {
         if (!mixer && currentModel && currentModel.geometry.type === 'BoxGeometry') {
             currentModel.rotation.y = (e.target.value / 100) * Math.PI * 2;
