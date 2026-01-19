@@ -1,0 +1,258 @@
+/* --- VARIABLES & DARK THEME (PANTALLA) --- */
+:root {
+    --bg-dark: #0f1115;
+    --bg-panel: rgba(30, 35, 45, 0.7);
+    --text-primary: #ffffff;
+    --text-secondary: #94a3b8;
+    --accent-color: #00f0ff; /* Cyan Cyberpunk */
+    --accent-glow: rgba(0, 240, 255, 0.3);
+    --border-color: rgba(255, 255, 255, 0.1);
+    --print-bg: #ffffff;
+    --print-text: #000000;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    height: 100vh;
+    overflow: hidden; /* App-like feel */
+}
+
+/* --- LAYOUT GENERAL --- */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.top-bar {
+    height: 60px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    backdrop-filter: blur(10px);
+}
+
+.logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: var(--accent-color);
+    letter-spacing: 1px;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    padding: 20px;
+    gap: 20px;
+    overflow: hidden;
+}
+
+/* --- PANELES ESTILO DARK TECH --- */
+.glass-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.info-panel {
+    width: 350px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.panel-header h2 {
+    font-size: 0.9rem;
+    color: var(--accent-color);
+    margin: 0;
+    letter-spacing: 2px;
+}
+
+/* Grid de datos simple */
+.data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.data-item label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.data-item span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+}
+
+/* --- VISOR 3D --- */
+.viewer-container {
+    flex: 1;
+    position: relative;
+    background: #000;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+.viewer-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, #1a202c 0%, #000 100%);
+    position: relative;
+}
+
+.tech-overlay {
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.crosshair {
+    width: 40px;
+    height: 40px;
+    border: 1px dashed var(--accent-color);
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    animation: spin 10s linear infinite;
+}
+
+@keyframes spin { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
+
+#api-frame {
+    position: absolute;
+    top:0; left:0;
+    width: 100%; height: 100%;
+    border: none;
+    opacity: 0; /* Oculto hasta que cargue */
+}
+
+/* Controles flotantes */
+.viewer-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 50px;
+}
+
+/* --- BOTONES TECH --- */
+.btn-tech {
+    background: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.3s ease;
+}
+
+.btn-tech:hover {
+    background: var(--accent-color);
+    color: #000;
+    box-shadow: 0 0 15px var(--accent-glow);
+}
+
+/* ==========================================================================
+   IMPRESIÓN (PRINT MODE) - ¡LA MAGIA OCURRE AQUÍ!
+   ========================================================================== */
+@media print {
+    /* 1. Resetear colores a blanco y negro puro */
+    body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        height: auto;
+        overflow: visible;
+    }
+
+    /* 2. Ocultar cosas que no sirven en papel */
+    .top-bar, 
+    .viewer-controls, 
+    .btn-tech,
+    .tech-overlay {
+        display: none !important;
+    }
+
+    /* 3. Reorganizar Layout para papel (vertical) */
+    .app-container {
+        display: block;
+    }
+
+    .main-content {
+        display: block;
+        padding: 0;
+    }
+
+    /* 4. Estilizar el Panel de Info como una Tabla Limpia */
+    .info-panel {
+        width: 100%;
+        background: none;
+        border: none;
+        box-shadow: none;
+        margin-bottom: 2cm;
+        padding: 0;
+    }
+
+    .panel-header {
+        border-bottom: 2px solid #000;
+    }
+
+    .panel-header h2 {
+        color: #000;
+        font-size: 1.5rem;
+    }
+
+    .data-grid {
+        margin-top: 1cm;
+        grid-template_columns: 1fr 1fr 1fr 1fr; /* Todo en una fila si cabe */
+        border: 1px solid #ccc;
+        padding: 10px;
+    }
+
+    /* 5. El Visor 3D en papel */
+    .viewer-container {
+        border: 1px solid #000;
+        height: 10cm; /* Altura fija para el papel */
+        background: #fff;
+        page-break-inside: avoid;
+    }
+
+    .viewer-placeholder {
+        background: #fff;
+    }
+    
+    /* Etiqueta para indicar que es un impreso */
+    .viewer-container::after {
+        content: "VISTA TÉCNICA (IMPRESIÓN)";
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 0.8rem;
+        color: #666;
+    }
+}

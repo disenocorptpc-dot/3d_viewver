@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor Técnico - Dark Tech (Three.js)</title>
+    <link rel="stylesheet" href="styles.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Import Map: La forma moderna de usar Three.js sin instalar nada -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+
+<body>
+
+    <div class="app-container">
+
+        <header class="top-bar">
+            <div class="logo">
+                <span class="icon">💠</span> ENGINE<b>CORE</b>_V2
+            </div>
+            <div class="actions">
+                <button class="btn-tech" onclick="window.print()">
+                    🖨️ Imprimir Reporte
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content">
+
+            <section class="info-panel glass-panel">
+                <div class="panel-header">
+                    <h2>ESPECIFICACIONES</h2>
+                    <div class="status-indicator active"></div>
+                </div>
+
+                <div class="data-grid">
+                    <div class="data-item">
+                        <label>MODELO</label>
+                        <span>X-200 Assembly</span>
+                    </div>
+                    <div class="data-item">
+                        <label>FORMATO</label>
+                        <span>GLB / glTF</span>
+                    </div>
+                    <div class="data-item">
+                        <label>ESTADO</label>
+                        <span style="color: #00ff88;">READY</span>
+                    </div>
+                    <div class="data-item">
+                        <label>CAPAS</label>
+                        <span>Detectadas</span>
+                    </div>
+                </div>
+
+                <div class="description">
+                    <h3>CONTROL DE DESPIECE</h3>
+                    <p>Utiliza el slider inferior para controlar la secuencia de ensamblaje generada en Blender (0% a
+                        100%).</p>
+                </div>
+
+                <div class="tech-readout">
+                    <div id="debug-console">Iniciando motor gráfico...</div>
+                </div>
+            </section>
+
+            <section class="viewer-container" id="scene-container">
+                <!-- El Canvas 3D se inyectará aquí automáticamente -->
+                <div id="loading-overlay">
+                    <div class="crosshair"></div>
+                    <p>CARGANDO GEOMETRÍA...</p>
+                </div>
+
+                <div class="viewer-controls glass-panel">
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">EXPLOSIÓN:</span>
+                    <input type="range" id="explosion-slider" min="0" max="100" value="0" class="tech-slider">
+                    <span id="slider-val">0%</span>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Script tipo Módulo para poder usar imports -->
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
