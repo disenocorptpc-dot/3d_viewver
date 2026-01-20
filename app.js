@@ -112,12 +112,13 @@ async function init() {
     setupProjectManager();
 
     // Actualizar botones a nuevas funciones
-    btnScreenshot.onclick = downloadScreenshot;
-    // El botón imprimir ya tiene onclick en HTML, pero es mejor controlarlo aquí
-    const btnPrint = document.querySelector('.btn-primary[onclick="window.print()"]');
+    // Actualizar botones a nuevas funciones
+    if (btnScreenshot) btnScreenshot.onclick = downloadScreenshot;
+
+    // Botón Imprimir
+    const btnPrint = document.getElementById('btn-print');
     if (btnPrint) {
-        btnPrint.removeAttribute('onclick'); // Quitar el inline
-        btnPrint.onclick = printTechnicalSheet; // Asignar la función pro
+        btnPrint.addEventListener('click', printTechnicalSheet);
     }
 
     window.addEventListener('resize', onWindowResize);
