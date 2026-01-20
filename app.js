@@ -547,8 +547,8 @@ function printTechnicalSheet() {
         qrContainer.innerHTML = ""; // Limpiar previos
         new QRCode(qrContainer, {
             text: sharedLink,
-            width: 60,
-            height: 60,
+            width: 128,
+            height: 128,
             colorDark: "#000000",
             colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.M
