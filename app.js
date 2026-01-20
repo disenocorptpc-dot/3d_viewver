@@ -111,7 +111,15 @@ async function init() {
     setupLayersLogic();
     setupProjectManager();
 
-    btnScreenshot.addEventListener('click', captureTransparentView);
+    // Actualizar botones a nuevas funciones
+    btnScreenshot.onclick = downloadScreenshot;
+    // El botón imprimir ya tiene onclick en HTML, pero es mejor controlarlo aquí
+    const btnPrint = document.querySelector('.btn-primary[onclick="window.print()"]');
+    if (btnPrint) {
+        btnPrint.removeAttribute('onclick'); // Quitar el inline
+        btnPrint.onclick = printTechnicalSheet; // Asignar la función pro
+    }
+
     window.addEventListener('resize', onWindowResize);
 
     slider.addEventListener('input', (e) => {
@@ -478,19 +486,92 @@ function setupModeButtons() {
     btnOrig.onclick = () => setMode('ORIG'); btnClay.onclick = () => setMode('CLAY'); btnWire.onclick = () => setMode('WIRE');
 }
 
-function captureTransparentView() {
+function downloadScreenshot() {
     if (!renderer) return;
+    // Configurar escena para captura limpia
+    const oldBg = scene.background;
+    const oldFog = scene.fog;
+    const grid = scene.getObjectByName('floor_grid');
+    const wasVisible = techCard ? techCard.classList.contains('visible') : false;
+
+    closeTechCard();
+    if (grid) grid.visible = false;
+    scene.background = null; // Transparente 
+    scene.fog = null;
+
+    renderer.render(scene, camera);
+    const dataURL = renderer.domElement.toDataURL('image/png');
+
+    // Restaurar escena
+    scene.background = oldBg;
+    scene.fog = oldFog;
+    if (grid) grid.visible = true;
+    if (wasVisible) showTechCard(selectedObject);
+
+    // Descargar
+    const link = document.createElement('a');
+    link.href = dataURL;
+    link.download = `Vista_${currentFileName.replace('.glb', '')}.png`;
+    link.click();
+}
+
+function printTechnicalSheet() {
+    if (!renderer) return;
+
+    // 1. CAPTURAR IMAGEN (Igual que screenshot pero guardándola en el DOM)
     const oldBg = scene.background; const oldFog = scene.fog; const grid = scene.getObjectByName('floor_grid');
-    const wasVisible = techCard.classList.contains('visible'); closeTechCard();
+    const wasVisible = techCard ? techCard.classList.contains('visible') : false; closeTechCard();
     if (grid) grid.visible = false; scene.background = null; scene.fog = null;
     renderer.render(scene, camera);
     const dataURL = renderer.domElement.toDataURL('image/png');
     scene.background = oldBg; scene.fog = oldFog; if (grid) grid.visible = true; if (wasVisible) showTechCard(selectedObject);
-    printImg.src = dataURL; printFile.textContent = currentFileName; printDate.textContent = new Date().toLocaleDateString();
-    printNotesDst.innerText = notesInput.value.trim() || "Sin observaciones generales.";
-    printDetailsGrid.innerHTML = ''; const printedNames = new Set();
-    const keys = Object.keys(partsData); if (keys.length > 0) { keys.forEach(uuid => { const part = partsData[uuid]; if (!part.customName && !part.desc) return; const nameToUse = part.customName || part.stableName; if (printedNames.has(nameToUse)) return; printedNames.add(nameToUse); const card = document.createElement('div'); card.className = 'print-card'; const imgHTML = part.img ? `<img src="${part.img}">` : ''; let metaHTML = ''; if (part.dims || part.weight) metaHTML = `<div class="print-card-meta">${part.dims ? `📏 ${part.dims} ` : ''} ${part.weight ? `⚖️ ${part.weight}` : ''}</div>`; const linkHTML = part.link ? `<a href="${part.link}" class="print-card-link" target="_blank">🛒 Ver Link de Compra</a>` : ''; card.innerHTML = `${imgHTML}<div class="print-card-content"><div class="print-card-title">${nameToUse}</div><div class="print-card-desc">${part.desc}</div>${metaHTML}${linkHTML}</div>`; printDetailsGrid.appendChild(card); }); }
-    alert("Captura Transparente Lista.\nFichas agrupadas por nombre.");
+
+    // 2. LLENAR DATOS DE FICHA
+    printImg.src = dataURL;
+    printFile.textContent = currentFileName.replace('.glb', '').replace(/_/g, ' ');
+    printDate.textContent = new Date().toLocaleDateString();
+
+    const sharedLink = window.location.origin + window.location.pathname + "?project=" + sanitizeName(currentFileName);
+    printNotesDst.innerHTML = `
+        <strong>Observaciones:</strong><br>${notesInput.value.trim() || "Sin observaciones registradas."}<br><br>
+        <div style="font-size:0.8em; color:#666; border:1px solid #ccc; padding:5px; display:inline-block;">
+            🔗 <strong>Enlace Digital:</strong><br>${sharedLink}
+        </div>
+    `;
+
+    // 3. GENERAR GRILLA DE PARTES
+    printDetailsGrid.innerHTML = '';
+    const printedNames = new Set();
+    const keys = Object.keys(partsData);
+
+    if (keys.length > 0) {
+        keys.forEach(uuid => {
+            const part = partsData[uuid];
+            // Filtrar: Solo mostrar partes que tengan INFO relevante (Nombre custom, desc, dimensiones, etc)
+            if (!part.customName && !part.desc && !part.dims) return;
+
+            const nameToUse = part.customName || part.stableName;
+            if (printedNames.has(nameToUse)) return;
+            printedNames.add(nameToUse);
+
+            const card = document.createElement('div');
+            card.className = 'print-card';
+
+            const imgHTML = part.img ? `<img src="${part.img}">` : '<div style="width:80px;height:80px;background:#eee;display:flex;align-items:center;justify-content:center;">📷</div>';
+
+            let metaHTML = '';
+            if (part.dims || part.weight) metaHTML = `<div class="print-card-meta">${part.dims ? `📏 ${part.dims} ` : ''} ${part.weight ? `⚖️ ${part.weight}` : ''}</div>`;
+            const linkHTML = part.link ? `<a href="${part.link}" class="print-card-link" target="_blank">🛒 Ver Proveedor</a>` : '';
+
+            card.innerHTML = `${imgHTML}<div class="print-card-content"><div class="print-card-title">${nameToUse}</div><div class="print-card-desc">${part.desc || 'Sin descripción'}</div>${metaHTML}${linkHTML}</div>`;
+            printDetailsGrid.appendChild(card);
+        });
+    } else {
+        printDetailsGrid.innerHTML = '<p style="padding:20px; color:#999; text-align:center; width:100%;">No hay piezas con información registrada para mostrar.</p>';
+    }
+
+    // 4. IMPRIMIR
+    window.print();
 }
 function onWindowResize() { const container = document.getElementById('scene-container'); if (!container) return; camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); }
 
