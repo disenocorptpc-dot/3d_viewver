@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visor Técnico - Engine Core v5.0</title>
+    <title>Visor Técnico - Engine Core v5.1</title>
     <link rel="stylesheet" href="styles.css">
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap"
@@ -22,9 +22,24 @@
 
 <body>
 
+    <!-- TOOLTIP SIMPLE (HOVER) -->
     <div id="floating-label" class="label-3d no-print">Part Name</div>
 
-    <!-- ZONA DE IMPRESIÓN -->
+    <!-- TARJETA DE INFORMACIÓN (CLICK) -->
+    <div id="tech-card" class="tech-card-3d no-print" style="display: none;">
+        <div class="card-header">
+            <span id="card-title">NOMBRE PIEZA</span>
+            <button id="close-card-btn">×</button>
+        </div>
+        <div class="card-body">
+            <div id="card-img-container" class="card-img-frame">
+                <img id="card-img" src="">
+            </div>
+            <p id="card-desc">Descripción técnica...</p>
+        </div>
+    </div>
+
+    <!-- ZONA IMPRESIÓN -->
     <div id="print-layout">
         <div class="print-header">
             <div class="print-logo">💠 ENGINE<b>CORE</b> REPORT</div>
@@ -39,22 +54,18 @@
                 <h3>OBSERVACIONES GENERALES:</h3>
                 <p id="print-notes-dest">Sin observaciones registradas.</p>
             </div>
-
-            <!-- NUEVO: SECCIÓN DE FICHAS TÉCNICAS -->
-            <div id="print-details-section" class="print-details-grid">
-                <!-- Aquí se inyectarán las fichas de las piezas seleccionadas -->
-            </div>
+            <div id="print-details-section" class="print-details-grid"></div>
         </div>
         <div class="print-footer">
             <p>Generado automáticamente por EngineCore 3D Web Viewer - DisenoCorp</p>
         </div>
     </div>
 
-    <!-- INTERFACE -->
+    <!-- INTERFAZ -->
     <div class="app-container no-print">
 
         <header class="top-bar">
-            <div class="logo"><span class="icon">💠</span> ENGINE<b>CORE</b>_V5.0</div>
+            <div class="logo"><span class="icon">💠</span> ENGINE<b>CORE</b>_V5.1</div>
             <div class="actions">
                 <button class="btn-tech" id="btn-screenshot">📸 Capturar</button>
                 <button class="btn-primary" onclick="window.print()">🖨️ Imprimir</button>
@@ -63,7 +74,6 @@
 
         <main class="main-content">
 
-            <!-- PANEL IZQUIERDO (Global) -->
             <section class="info-panel glass-panel">
                 <div class="panel-header">
                     <h2>VISUALIZACIÓN</h2>
@@ -74,13 +84,13 @@
                     <button class="tool-btn" id="mode-wire">🕸️ Wire</button>
                 </div>
                 <div class="panel-header" style="margin-top: 20px;">
-                    <h2>CAPAS / OBJETOS</h2>
+                    <h2>CAPAS</h2>
                 </div>
                 <div id="layers-list" class="layers-container">
                     <p style="font-size:0.7rem; color:#666">Cargando...</p>
                 </div>
                 <div class="panel-header" style="margin-top: 20px;">
-                    <h2>BITÁCORA GLOBAL</h2>
+                    <h2>BITÁCORA</h2>
                 </div>
                 <textarea id="notes-input" placeholder="Observaciones generales..."></textarea>
                 <div class="description" style="margin-top:auto">
@@ -88,12 +98,12 @@
                 </div>
             </section>
 
-            <!-- VISOR CENTRAL -->
             <section class="viewer-container" id="scene-container">
                 <div id="loading-overlay">
                     <div class="crosshair"></div>
                     <p>ARRASTRA TU .GLB AQUÍ</p>
                 </div>
+                <!-- SLIDER -->
                 <div class="viewer-controls glass-panel">
                     <span style="font-size: 0.8rem; color: var(--text-secondary);">EXPLOSIÓN:</span>
                     <input type="range" id="explosion-slider" min="0" max="100" value="0" class="tech-slider">
@@ -101,42 +111,38 @@
                 </div>
             </section>
 
-            <!-- PANEL DERECHO (Ficha Técnica) -->
+            <!-- FICHA TÉCNICA (DERECHA) -->
             <section class="detail-panel glass-panel" id="detail-panel">
                 <div class="panel-header">
-                    <h2>FICHA TÉCNICA</h2>
+                    <h2>EDICIÓN FICHA</h2>
                 </div>
-
                 <div id="empty-selection-msg">
                     <p style="color:#666; font-size: 0.8rem; text-align: center; margin-top: 50px;">
-                        Selecciona una pieza en el modelo 3D para ver o editar sus detalles.
+                        Selecciona una pieza para editar su información.
                     </p>
                 </div>
-
                 <div id="part-details-content" style="display:none;">
                     <div class="detail-group">
                         <label>PIEZA:</label>
                         <input type="text" id="detail-name" readonly class="tech-input static">
                     </div>
-
                     <div class="detail-group">
-                        <label>FOTO REAL (Click o Pegar):</label>
+                        <label>FOTO REAL (Click/Paste):</label>
                         <div class="image-upload-zone" id="detail-img-zone">
-                            <span id="img-placeholder-text">+ AÑADIR FOTO</span>
+                            <span id="img-placeholder-text">+ FOTO</span>
                             <img id="detail-img-preview" src="" style="display:none;">
                             <input type="file" id="detail-img-input" accept="image/*" hidden>
                         </div>
                     </div>
-
                     <div class="detail-group">
-                        <label>DESCRIPCIÓN / ESPECIFICACIONES:</label>
-                        <textarea id="detail-desc" class="tech-input"
-                            placeholder="Ej: Material AISI 304, Acabado Pulido..."></textarea>
+                        <label>DATOS TÉCNICOS:</label>
+                        <textarea id="detail-desc" class="tech-input" placeholder="Material, medidas..."></textarea>
                     </div>
-
                     <div class="detail-actions">
-                        <button class="btn-tech" id="btn-save-detail" style="width:100%">💾 GUARDAR FICHA</button>
+                        <button class="btn-tech" id="btn-save-detail" style="width:100%">💾 GUARDAR</button>
                     </div>
+                    <div class="db-status" id="db-msg"
+                        style="font-size:0.6rem; color:#666; margin-top:5px; text-align:center;"></div>
                 </div>
             </section>
 

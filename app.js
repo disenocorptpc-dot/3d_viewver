@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { saveProjectData, loadProjectData } from './db_manager.js'; // FIREBASE IMPORT
+import { saveProjectData, loadProjectData } from './db_manager.js';
 
-// --- CONFIGURACIÓN ---
+// --- CONFIG ---
 const BG_COLOR = 0x0f1115;
 
-// --- VARIABLES GLOBALES ---
+// --- GLOBALS ---
 let camera, scene, renderer, mixer;
 let allActions = [];
 let currentModel = null;
@@ -14,17 +14,19 @@ let originalMaterials = new Map();
 let currentFileName = "Sin Archivo";
 let raycaster, mouse;
 let selectedObject = null;
-let partsData = {}; // { uuid: {name, desc, img} }
+let partsData = {}; // { uuid: {name, desc, img, stableName} }
 
-// UI Elements
+// UI
 const loadingDiv = document.getElementById('loading-overlay');
 const slider = document.getElementById('explosion-slider');
 const sliderVal = document.getElementById('slider-val');
-const notesInput = document.getElementById('notes-input'); // Bitacora Global
+const notesInput = document.getElementById('notes-input');
 const layersList = document.getElementById('layers-list');
 const floatingLabel = document.getElementById('floating-label');
+const techCard = document.getElementById('tech-card'); // V5.1 Pop-up
+const dbMsg = document.getElementById('db-msg'); // Helper status
 
-// Detail Panel Elements
+// Detail Panel
 const detailPanel = document.getElementById('detail-panel');
 const detailContent = document.getElementById('part-details-content');
 const emptyMsg = document.getElementById('empty-selection-msg');
@@ -36,7 +38,7 @@ const detailImgPreview = document.getElementById('detail-img-preview');
 const imgPlaceholder = document.getElementById('img-placeholder-text');
 const btnSaveDetail = document.getElementById('btn-save-detail');
 
-// Print Elements
+// Print
 const btnScreenshot = document.getElementById('btn-screenshot');
 const printImg = document.getElementById('print-snapshot');
 const printDate = document.getElementById('print-date');
@@ -86,6 +88,8 @@ function init() {
 
     setupModeButtons();
     setupDetailPanelLogic();
+    setupTechCardLogic(); // V5.1
+
     btnScreenshot.addEventListener('click', captureTransparentView);
     window.addEventListener('resize', onWindowResize);
 
@@ -99,10 +103,14 @@ function init() {
             const targetTime = maxDuration * (percent / 100);
             allActions.forEach(action => action.time = targetTime);
             mixer.update(0);
+
+            // Si hay tarjeta abierta, actualizar su posición
+            if (selectedObject && techCard.style.display !== 'none') {
+                updateTechCardPosition();
+            }
         }
     });
 
-    // Auto-save de notas globales al perder foco
     notesInput.addEventListener('change', () => {
         if (currentFileName !== "Sin Archivo") {
             saveProjectData(currentFileName, partsData, notesInput.value);
@@ -118,7 +126,7 @@ function loadLocalFile(file) {
     loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "CARGANDO MODELO...";
 
     loader.load(url, async function (gltf) {
-        if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); floatingLabel.style.display = 'none'; }
+        if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); hideLabel(); closeTechCard(); }
 
         partsData = {};
         selectedObject = null;
@@ -132,10 +140,6 @@ function loadLocalFile(file) {
             if (obj.isMesh) {
                 obj.castShadow = true; obj.receiveShadow = true;
                 if (obj.material) originalMaterials.set(obj.uuid, obj.material);
-
-                // --- MAPEO DE PERSISTENCIA ---
-                // Intentamos recuperar datos usando el NOMBRE del objeto como clave persistente
-                // (Ya que los UUIDs de Three.js cambian al recargar, pero los nombres de Blender no)
                 obj.userData.originalName = obj.name;
             }
         });
@@ -147,30 +151,23 @@ function loadLocalFile(file) {
 
         generateLayersUI(model);
 
-        // --- CARGAR DATOS DE NUBE ---
-        loadingDiv.querySelector('p').innerText = "SINCRONIZANDO...";
+        loadingDiv.querySelector('p').innerText = "SINCRONIZANDO DB...";
         const cloudData = await loadProjectData(currentFileName);
 
         if (cloudData) {
             console.log("Datos cargados:", cloudData);
             notesInput.value = cloudData.notes || "";
-
-            // Reconstruir partsData mapeando nombres -> UUIDs actuales
-            // cloudData.parts usa Nombres o IDs estables? 
-            // V5.1 Mejoramos: Guardaremos en DB clave = NOMBRE OBJETO.
-            // Asi al recargar, buscamos objeto por nombre y le asignamos la data.
-
             const cloudParts = cloudData.parts || {};
-
-            // Recorrer el modelo actual y ver si tenemos datos para él
+            // Mapear Nombres a UUIDs
             model.traverse((obj) => {
                 if (obj.isMesh && cloudParts[obj.name]) {
-                    // Encontrado! Asociar datos al UUID actual de sesion
                     partsData[obj.uuid] = cloudParts[obj.name];
                 }
             });
+            dbMsg.innerText = "Sincronizado con Nube ✅";
         } else {
             notesInput.value = "";
+            dbMsg.innerText = "Proyecto Nuevo";
         }
 
         loadingDiv.style.display = 'none';
@@ -225,19 +222,88 @@ function onPointerDown(event) {
             mat.emissive.setHex(0x00ffff);
             setTimeout(() => mat.emissive.setHex(oldEmissive), 300);
         }
-        showLabel(event.clientX, event.clientY, hit.object.name || "Objeto");
+
+        // V5.1 Lógica Tech Card
+        // Si hay datos, mostrar tarjeta. Si no, solo label
+        if (partsData[selectedObject.uuid] && (partsData[selectedObject.uuid].desc || partsData[selectedObject.uuid].img)) {
+            showTechCard(selectedObject);
+        } else {
+            closeTechCard(); // Cerrar si clicamos uno sin info
+            showLabel(event.clientX, event.clientY, hit.object.name || "Objeto");
+        }
+
     } else {
         hideLabel();
+        // Si clic en vacío, ¿cerramos?
+        // closeTechCard();
     }
+}
+
+// --- V5.1 TECH CARD LOGIC ---
+function setupTechCardLogic() {
+    document.getElementById('close-card-btn').onclick = closeTechCard;
+}
+
+function showTechCard(object) {
+    if (!object) return;
+    const data = partsData[object.uuid];
+    if (!data) return;
+
+    hideLabel(); // Ocultar tooltip simple
+
+    document.getElementById('card-title').innerText = data.name || object.name;
+    const imgBox = document.getElementById('card-img');
+    const descBox = document.getElementById('card-desc');
+
+    if (data.img) {
+        imgBox.src = data.img;
+        imgBox.parentElement.style.display = 'block';
+    } else {
+        imgBox.parentElement.style.display = 'none';
+        imgBox.src = "";
+    }
+
+    descBox.innerText = data.desc || "Sin descripción técnica.";
+
+    techCard.style.display = 'block';
+    // Forzar reflow para animación
+    void techCard.offsetWidth;
+    techCard.classList.add('visible');
+
+    updateTechCardPosition();
+}
+
+function closeTechCard() {
+    techCard.classList.remove('visible');
+    setTimeout(() => { if (!techCard.classList.contains('visible')) techCard.style.display = 'none'; }, 300);
+}
+
+function updateTechCardPosition() {
+    if (!selectedObject || techCard.style.display === 'none') return;
+
+    // Proyectar posición del objeto al 2D
+    const pos = new THREE.Vector3();
+    selectedObject.getWorldPosition(pos);
+    pos.project(camera); // -1 a +1
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    const x = (pos.x * .5 + .5) * rect.width + rect.left;
+    const y = (-(pos.y * .5) - .5) * rect.height + rect.top + rect.height; // Invertir Y correctamente
+
+    // Posicionar tarjeta encima y centrada
+    // Offset Y arbitrario para no tapar el objeto
+    const cardH = techCard.offsetHeight;
+    const cardW = techCard.offsetWidth;
+
+    techCard.style.left = (x - cardW / 2) + 'px';
+    techCard.style.top = (y - cardH - 20) + 'px'; // 20px arriba
 }
 
 function setupDetailPanelLogic() {
     detailImgZone.onclick = () => detailImgInput.click();
     detailImgInput.onchange = (e) => {
         if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (evt) => { setDetailImage(evt.target.result); };
-            reader.readAsDataURL(e.target.files[0]);
+            const reader = new FileReader(); reader.onload = (evt) => { setDetailImage(evt.target.result); }; reader.readAsDataURL(e.target.files[0]);
         }
     };
     window.addEventListener('paste', (e) => {
@@ -245,11 +311,7 @@ function setupDetailPanelLogic() {
         if (e.clipboardData && e.clipboardData.items) {
             for (let i = 0; i < e.clipboardData.items.length; i++) {
                 if (e.clipboardData.items[i].type.indexOf("image") !== -1) {
-                    const blob = e.clipboardData.items[i].getAsFile();
-                    const reader = new FileReader();
-                    reader.onload = (evt) => setDetailImage(evt.target.result);
-                    reader.readAsDataURL(blob);
-                    break;
+                    const blob = e.clipboardData.items[i].getAsFile(); const reader = new FileReader(); reader.onload = (evt) => setDetailImage(evt.target.result); reader.readAsDataURL(blob); break;
                 }
             }
         }
@@ -258,58 +320,44 @@ function setupDetailPanelLogic() {
     // GUARDAR 
     btnSaveDetail.onclick = async () => {
         if (!selectedObject) return;
-
-        // Guardar en sesión
         const uuid = selectedObject.uuid;
-        const nameKey = selectedObject.name || "unnamed"; // Clave estable
+        const nameKey = selectedObject.name || "unnamed";
 
-        // La estructura de partsData ahora almacenará info bajo el UUID para uso inmediato
-        // PERO al guardar en DB usaremos el NAME para que sobreviva recargas
         partsData[uuid] = {
             name: detailName.value,
             desc: detailDesc.value,
             img: detailImgPreview.src !== window.location.href ? detailImgPreview.src : null,
-            stableName: nameKey // Referencia para DB
+            stableName: nameKey
         };
 
-        // Preparar objeto para Nube (Mapeado por Nombre Estático)
         const partsForCloud = {};
-        Object.values(partsData).forEach(p => {
-            if (p.stableName) {
-                partsForCloud[p.stableName] = p;
-            }
-        });
+        Object.values(partsData).forEach(p => { if (p.stableName) partsForCloud[p.stableName] = p; });
 
-        // Disparar guardado en nube
         btnSaveDetail.innerText = "☁️ GUARDANDO...";
         const success = await saveProjectData(currentFileName, partsForCloud, notesInput.value);
 
         if (success) {
             btnSaveDetail.innerText = "✅ GUARDADO";
+            dbMsg.innerText = "Ultimo guardado: " + new Date().toLocaleTimeString();
         } else {
             btnSaveDetail.innerText = "❌ ERROR DB";
+            dbMsg.innerText = "Error permisos DB";
         }
         setTimeout(() => btnSaveDetail.innerText = "💾 GUARDAR FICHA", 2000);
     };
 }
 
 function setDetailImage(src) {
-    if (!src) {
-        detailImgPreview.style.display = 'none'; detailImgPreview.src = ''; imgPlaceholder.style.display = 'block';
-    } else {
-        detailImgPreview.src = src; detailImgPreview.style.display = 'block'; imgPlaceholder.style.display = 'none';
-    }
+    if (!src) { detailImgPreview.style.display = 'none'; detailImgPreview.src = ''; imgPlaceholder.style.display = 'block'; }
+    else { detailImgPreview.src = src; detailImgPreview.style.display = 'block'; imgPlaceholder.style.display = 'none'; }
 }
 
 function updateDetailPanel() {
     if (!selectedObject) { detailContent.style.display = 'none'; emptyMsg.style.display = 'block'; return; }
     detailContent.style.display = 'block'; emptyMsg.style.display = 'none';
-
-    // Buscar datos
     const uuid = selectedObject.uuid;
     const name = selectedObject.name || "Objeto Sin Nombre";
     detailName.value = name;
-
     if (partsData[uuid]) {
         detailDesc.value = partsData[uuid].desc || "";
         setDetailImage(partsData[uuid].img);
@@ -353,10 +401,17 @@ function setupModeButtons() {
 function captureTransparentView() {
     if (!renderer) return;
     const oldBg = scene.background; const oldFog = scene.fog; const grid = scene.getObjectByName('floor_grid');
+    // Hide tech card for screenshot also
+    const wasVisible = techCard.classList.contains('visible');
+    closeTechCard();
+
     if (grid) grid.visible = false; scene.background = null; scene.fog = null;
     renderer.render(scene, camera);
     const dataURL = renderer.domElement.toDataURL('image/png');
     scene.background = oldBg; scene.fog = oldFog; if (grid) grid.visible = true;
+
+    // Restore tech card if it was open
+    if (wasVisible) showTechCard(selectedObject);
 
     printImg.src = dataURL; printFile.textContent = currentFileName; printDate.textContent = new Date().toLocaleDateString();
     printNotesDst.innerText = notesInput.value.trim() || "Sin observaciones generales.";
@@ -373,7 +428,7 @@ function captureTransparentView() {
             printDetailsGrid.appendChild(card);
         });
     }
-    alert("Captura Transparente Lista.\nSe han incluido las fichas técnicas guardadas en el reporte.");
+    alert("Captura Transparente Lista.\nFichas técnicas incluidas.");
 }
 
 function onWindowResize() {
@@ -383,4 +438,8 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(container.clientWidth, container.clientHeight);
 }
-function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
+function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+    if (selectedObject && techCard.classList.contains('visible')) updateTechCardPosition(); // Live update
+}
