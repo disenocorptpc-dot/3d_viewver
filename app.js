@@ -30,7 +30,6 @@ const btnOrig = document.getElementById('mode-original');
 const btnClay = document.getElementById('mode-clay');
 const btnWire = document.getElementById('mode-wire');
 
-// Detail Panel
 const detailPanel = document.getElementById('detail-panel');
 const detailContent = document.getElementById('part-details-content');
 const emptyMsg = document.getElementById('empty-selection-msg');
@@ -46,7 +45,6 @@ const imgPlaceholder = document.getElementById('img-placeholder-text');
 const btnSaveDetail = document.getElementById('btn-save-detail');
 const checkApplyBulk = document.getElementById('check-apply-bulk');
 
-// Print
 const btnScreenshot = document.getElementById('btn-screenshot');
 const printImg = document.getElementById('print-snapshot');
 const printDate = document.getElementById('print-date');
@@ -54,7 +52,6 @@ const printFile = document.getElementById('print-filename');
 const printNotesDst = document.getElementById('print-notes-dest');
 const printDetailsGrid = document.getElementById('print-details-section');
 
-// Utils
 let controls;
 
 init();
@@ -64,10 +61,12 @@ function init() {
     const container = document.getElementById('scene-container');
     scene = new THREE.Scene();
     scene.background = new THREE.Color(BG_COLOR);
-    scene.fog = new THREE.Fog(BG_COLOR, 15, 60);
+    // FOG LEJANO para evitar oscurecer modelos grandes
+    scene.fog = new THREE.Fog(BG_COLOR, 50, 500);
 
-    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.set(5, 5, 5);
+    // CAMARA CON RANGO EXTENDIDO (0.1 a 100,000)
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100000);
+    camera.position.set(10, 10, 10);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -80,17 +79,25 @@ function init() {
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2); scene.add(hemiLight);
 
-    // HEADLAMP (Luz frontal segura)
+    // HEADLAMP
     const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
     dirLight.position.set(0, 0, 1);
     camera.add(dirLight);
     scene.add(camera);
 
-    const spotLight = new THREE.SpotLight(0x00f0ff, 5.0); spotLight.position.set(-6, 4, -4); spotLight.lookAt(0, 0, 0); scene.add(spotLight);
-    const grid = new THREE.GridHelper(30, 30, 0x333333, 0x111111); grid.name = "floor_grid"; scene.add(grid);
+    // Grid Gigante
+    const grid = new THREE.GridHelper(500, 50, 0x333333, 0x111111); grid.name = "floor_grid"; scene.add(grid);
+
+    // TEST CUBE (Testigo rojo en 0,0,0)
+    const geo = new THREE.BoxGeometry(1, 1, 1);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
+    const cube = new THREE.Mesh(geo, mat);
+    cube.name = "TestCube";
+    scene.add(cube);
 
     controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; controls.dampingFactor = 0.05; controls.target.set(0, 1, 0); controls.update();
+    controls.enableDamping = true; controls.dampingFactor = 0.05;
+    controls.update();
 
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
@@ -130,7 +137,7 @@ function loadLocalFile(file) {
     const loader = new GLTFLoader();
 
     currentFileName = file.name;
-    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "CARGANDO MODELO...";
+    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "NORMALIZANDO ESCALA...";
 
     loader.load(url, async function (gltf) {
         if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); hideLabel(); closeTechCard(); }
@@ -149,25 +156,27 @@ function loadLocalFile(file) {
             }
         });
 
-        // --- CENTRADO CLÁSICO (INFALIBLE) ---
+        // --- NORMALIZACIÓN DE ESCALA RADICAL ---
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
-        // Mover modelo para que su centro geométrico esté en 0,0,0
-        model.position.sub(center);
-        // Subir un poco si queda muy enterrado (opcional, pero estético)
-        const size = box.getSize(new THREE.Vector3());
-        model.position.y += size.y * 0.15;
 
-        // --- AUTO-ZOOM (Fit to Screen) ---
-        // Recalcular bounding box tras moverlo
-        const totalBox = new THREE.Box3().setFromObject(model);
+        // 1. Centrar
+        model.position.sub(center);
+
+        // 2. Escalar a tamaño estándar (ej: 10 unidades)
+        const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
 
-        const fov = camera.fov * (Math.PI / 180);
-        let cameraDist = Math.abs(maxDim / 2 * Math.tan(fov * 2));
-        cameraDist *= 2.5; // Margen de seguridad amplio (x2.5)
+        let scaleFactor = 1.0;
+        if (maxDim > 0) {
+            scaleFactor = 10.0 / maxDim; // Forzar que mida 10 unidades
+        }
+        model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-        camera.position.set(cameraDist, cameraDist * 0.8, cameraDist);
+        console.log(`Original Size: ${maxDim}. Scaling by: ${scaleFactor} to Size: 10`);
+
+        // 3. Ajustar Cámara
+        camera.position.set(15, 15, 15);
         controls.target.set(0, 0, 0);
         controls.update();
 
@@ -199,6 +208,7 @@ function loadLocalFile(file) {
         }
         URL.revokeObjectURL(url);
 
+        // Clay mode + Quitar el cubo de test si todo va bien (opcional, lo dejo para ref)
         setTimeout(() => { btnClay.click(); }, 150);
 
     }, undefined, (err) => { console.error(err); });
@@ -278,7 +288,7 @@ function onPointerDown(event) {
     const intersects = raycaster.intersectObject(currentModel, true);
 
     if (intersects.length > 0) {
-        const hit = intersects.find(h => h.object.visible);
+        const hit = intersects.find(h => h.object.visible && h.object.name !== "TestCube" && h.object.type !== "GridHelper");
         if (!hit) return;
         selectedObject = hit.object; updateDetailPanel();
         const mat = hit.object.material;
@@ -362,7 +372,7 @@ function setupModeButtons() {
         const matWire = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true });
         const colorMap = new Map();
         currentModel.traverse((obj) => {
-            if (obj.isMesh) {
+            if (obj.isMesh && obj.name !== "TestCube") {
                 if (mode === 'ORIG') { if (originalMaterials.has(obj.uuid)) obj.material = originalMaterials.get(obj.uuid); }
                 else if (mode === 'CLAY') {
                     let randColor; if (colorMap.has(obj.uuid)) { randColor = colorMap.get(obj.uuid); }
@@ -378,11 +388,12 @@ function setupModeButtons() {
 function captureTransparentView() {
     if (!renderer) return;
     const oldBg = scene.background; const oldFog = scene.fog; const grid = scene.getObjectByName('floor_grid');
+    const cube = scene.getObjectByName('TestCube');
     const wasVisible = techCard.classList.contains('visible'); closeTechCard();
-    if (grid) grid.visible = false; scene.background = null; scene.fog = null;
+    if (grid) grid.visible = false; if (cube) cube.visible = false; scene.background = null; scene.fog = null;
     renderer.render(scene, camera);
     const dataURL = renderer.domElement.toDataURL('image/png');
-    scene.background = oldBg; scene.fog = oldFog; if (grid) grid.visible = true; if (wasVisible) showTechCard(selectedObject);
+    scene.background = oldBg; scene.fog = oldFog; if (grid) grid.visible = true; if (cube) cube.visible = true; if (wasVisible) showTechCard(selectedObject);
     printImg.src = dataURL; printFile.textContent = currentFileName; printDate.textContent = new Date().toLocaleDateString();
     printNotesDst.innerText = notesInput.value.trim() || "Sin observaciones generales.";
     printDetailsGrid.innerHTML = ''; const printedNames = new Set();
