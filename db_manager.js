@@ -141,3 +141,25 @@ function sanitizeName(name) {
     // Reemplazar ., /, espacios por guiones bajos
     return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 }
+
+export async function getAllProjects() {
+    if (!isConnected) return [];
+    try {
+        const q = query(collection(db, "proyectos_3d"), orderBy("lastUpdate", "desc"));
+        const querySnapshot = await getDocs(q);
+        const projects = [];
+        querySnapshot.forEach((doc) => {
+            const d = doc.data();
+            projects.push({
+                docId: doc.id,
+                fileName: d.fileName || doc.id,
+                lastUpdate: d.lastUpdate,
+                notes: d.notes || ""
+            });
+        });
+        return projects;
+    } catch (e) {
+        console.error("Error obteniendo lista de proyectos:", e);
+        return [];
+    }
+}

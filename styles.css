@@ -617,3 +617,104 @@ button:hover {
     border-top: 1px solid #eee;
     padding-top: 10px;
 }
+
+/* --- PROJECTS MODAL --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(5px);
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: rgba(20, 20, 25, 0.95);
+    border: 1px solid var(--accent);
+    width: 500px;
+    max-width: 90%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(0, 240, 255, 0.1);
+}
+
+.modal-header {
+    background: var(--accent-dim);
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--accent);
+    font-size: 1rem;
+}
+
+.btn-close-modal {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.project-list {
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.project-card {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.project-card:hover {
+    border-color: var(--accent);
+    background: rgba(0, 240, 255, 0.05);
+}
+
+.project-info h4 {
+    margin: 0 0 5px 0;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.project-info p {
+    margin: 0;
+    color: #888;
+    font-size: 0.75rem;
+}
+
+.btn-load-proj {
+    background: var(--accent);
+    color: black;
+    border: none;
+    padding: 6px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+}
+
+.btn-load-proj:hover {
+    background: #fff;
+}

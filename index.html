@@ -91,6 +91,8 @@
         <header class="top-bar">
             <div class="logo"><span class="icon">💠</span> ENGINE<b>CORE</b>_V5.14</div>
             <div class="actions">
+                <button class="btn-primary" id="btn-open-projects" style="margin-right: 10px;">📂 Abrir
+                    Proyecto</button>
                 <button class="btn-tech" id="btn-screenshot">📸 Capturar</button>
                 <button class="btn-primary" onclick="window.print()">🖨️ Imprimir</button>
             </div>
@@ -208,6 +210,19 @@
             </section>
 
         </main>
+    </div>
+
+    <!-- PROJECTS MODAL -->
+    <div id="projects-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📂 PROYECTOS GUARDADOS (NUBE)</h3>
+                <button class="btn-close-modal" id="btn-close-modal">×</button>
+            </div>
+            <div id="project-list-container" class="project-list">
+                <p style="color:#666; font-size:0.8rem; text-align:center; padding:20px;">Cargando lista...</p>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="app.js"></script>

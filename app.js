@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { saveProjectData, loadProjectData, saveModelAsChunks, loadModelFromChunks } from './db_manager.js';
+import { saveProjectData, loadProjectData, saveModelAsChunks, loadModelFromChunks, getAllProjects } from './db_manager.js';
 
 // --- CONFIG ---
 const BG_COLOR = 0x0f1115;
@@ -53,6 +53,12 @@ const printFile = document.getElementById('print-filename');
 const printNotesDst = document.getElementById('print-notes-dest');
 const printDetailsGrid = document.getElementById('print-details-section');
 
+// PROJECTS MODAL
+const btnOpenProjects = document.getElementById('btn-open-projects');
+const projectsModal = document.getElementById('projects-modal');
+const btnCloseModal = document.getElementById('btn-close-modal');
+const projectListContainer = document.getElementById('project-list-container');
+
 let controls;
 
 init();
@@ -103,6 +109,7 @@ async function init() {
     setupDetailPanelLogic();
     setupTechCardLogic();
     setupLayersLogic();
+    setupProjectManager();
 
     btnScreenshot.addEventListener('click', captureTransparentView);
     window.addEventListener('resize', onWindowResize);
@@ -494,4 +501,79 @@ function captureTransparentView() {
     alert("Captura Transparente Lista.\nFichas agrupadas por nombre.");
 }
 function onWindowResize() { const container = document.getElementById('scene-container'); if (!container) return; camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); }
+
+function setupProjectManager() {
+    btnOpenProjects.onclick = async () => {
+        projectsModal.style.display = 'flex';
+        projectListContainer.innerHTML = '<p style="color:#aaa; text-align:center; padding:20px;">Cargando proyectos...</p>';
+        const projects = await getAllProjects();
+        renderProjectList(projects);
+    };
+
+    btnCloseModal.onclick = () => { projectsModal.style.display = 'none'; };
+
+    // Close on click outside
+    projectsModal.addEventListener('click', (e) => {
+        if (e.target === projectsModal) projectsModal.style.display = 'none';
+    });
+}
+
+function renderProjectList(projects) {
+    projectListContainer.innerHTML = '';
+    if (projects.length === 0) {
+        projectListContainer.innerHTML = '<p style="color:#aaa; text-align:center;">No hay proyectos guardados aún.</p>';
+        return;
+    }
+
+    projects.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'project-card';
+
+        const dateStr = new Date(p.lastUpdate).toLocaleString();
+
+        card.innerHTML = `
+            <div class="project-info">
+                <h4>${p.fileName}</h4>
+                <p>📅 ${dateStr}</p>
+                <p>📝 ${p.notes ? p.notes.substring(0, 30) + '...' : 'Sin notas'}</p>
+            </div>
+            <button class="btn-load-proj">ABRIR</button>
+        `;
+
+        // Load on click
+        card.onclick = () => {
+            projectsModal.style.display = 'none';
+            // Trigger load logic
+            localStorage.setItem('lastProjectName', p.docId); // Save sanitized ID
+
+            // Re-use auto resume logic manually
+            loadingDiv.style.display = 'flex';
+            loadingDiv.querySelector('p').innerText = "🔄 CAMBIANDO PROYECTO...";
+
+            // Force reload via init logic or direct call? 
+            // Better direct call to avoid full page reload if possible, but full reload is safer for cleanup.
+            // Let's try direct call first.
+            loadProjectByDocId(p.docId);
+        };
+
+        projectListContainer.appendChild(card);
+    });
+}
+
+async function loadProjectByDocId(docId) {
+    const data = await loadProjectData(docId);
+    if (data) {
+        currentFileName = data.fileName;
+        loadingDiv.querySelector('p').innerText = "🧩 CARGANDO " + currentFileName + "...";
+
+        if (data.storageMode === 'firestore_chunks' || (!data.modelUrl && data.totalChunks)) {
+            const b64Data = await loadModelFromChunks(docId);
+            if (b64Data) loadGLB(b64Data, currentFileName);
+        }
+        else if (data.modelUrl) {
+            loadModelFromURL(data.modelUrl);
+        }
+    }
+}
+
 function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); if (selectedObject && techCard.classList.contains('visible')) updateTechCardPosition(); }
