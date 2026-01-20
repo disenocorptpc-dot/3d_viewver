@@ -497,18 +497,41 @@ button:hover {
 }
 
 @media print {
-    body {
-        background: white;
-        height: auto;
-        overflow: visible;
+
+    /* Ocultar todo por defecto de manera agresiva */
+    body * {
+        visibility: hidden;
     }
 
-    .no-print {
-        display: none !important;
+    /* Mostrar solo el layout de impresión y sus hijos */
+    #print-layout,
+    #print-layout * {
+        visibility: visible;
     }
 
+    /* Posicionar el layout de impresión para que ocupe todo */
     #print-layout {
-        display: block;
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+        z-index: 9999;
+    }
+
+    /* Resetear fondos y márgenes del body */
+    body {
+        margin: 0;
+        padding: 0;
+        background: white;
+        overflow: visible !important;
+    }
+
+    /* Asegurar que las imágenes se impriman */
+    img {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 }
 

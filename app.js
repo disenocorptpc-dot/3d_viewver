@@ -570,8 +570,10 @@ function printTechnicalSheet() {
         printDetailsGrid.innerHTML = '<p style="padding:20px; color:#999; text-align:center; width:100%;">No hay piezas con información registrada para mostrar.</p>';
     }
 
-    // 4. IMPRIMIR
-    window.print();
+    // 4. IMPRIMIR (Con retardo para asegurar renderizado)
+    setTimeout(() => {
+        window.print();
+    }, 500);
 }
 function onWindowResize() { const container = document.getElementById('scene-container'); if (!container) return; camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); }
 
