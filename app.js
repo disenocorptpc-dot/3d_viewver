@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { saveProjectData, loadProjectData } from './db_manager.js';
-import { openDB } from 'https://unpkg.com/idb?module'; // Helper ligera para IndexedDB
+import { saveProjectData, loadProjectData, saveModelAsChunks, loadModelFromChunks } from './db_manager.js';
 
 // --- CONFIG ---
 const BG_COLOR = 0x0f1115;
@@ -13,6 +12,7 @@ let allActions = [];
 let currentModel = null;
 let originalMaterials = new Map();
 let currentFileName = "Sin Archivo";
+let currentModelUrl = null; // URL en Firebase
 let raycaster, mouse;
 let selectedObject = null;
 let partsData = {};
@@ -55,11 +55,6 @@ const printDetailsGrid = document.getElementById('print-details-section');
 
 let controls;
 
-// --- INDEXED DB (CACHE) ---
-async function initDB() { return openDB('EngineCoreDB', 1, { upgrade(db) { db.createObjectStore('models'); } }); }
-async function cacheModel(file) { const db = await initDB(); await db.put('models', file, 'lastModel'); }
-async function getCachedModel() { const db = await initDB(); return await db.get('models', 'lastModel'); }
-
 init();
 animate();
 
@@ -78,16 +73,16 @@ async function init() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Suave
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2); scene.add(hemiLight);
 
-    // HEADLAMP (Sombra ajustada para evitar artifacts)
     const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
     dirLight.position.set(0, 0, 1);
     dirLight.castShadow = true;
-    dirLight.shadow.bias = -0.001; // Fix sombras raras
+    dirLight.shadow.bias = -0.0001;
+    dirLight.shadow.normalBias = 0.02; // Mejor que bias puro para geometría curva
     camera.add(dirLight);
     scene.add(camera);
 
@@ -102,7 +97,7 @@ async function init() {
 
     window.addEventListener('dragover', (e) => { e.preventDefault(); loadingDiv.style.display = 'flex'; }, false);
     window.addEventListener('dragleave', (e) => { loadingDiv.style.display = 'none'; }, false);
-    window.addEventListener('drop', (e) => { e.preventDefault(); loadingDiv.style.display = 'none'; if (e.dataTransfer.files[0]) loadLocalFile(e.dataTransfer.files[0]); }, false);
+    window.addEventListener('drop', (e) => { e.preventDefault(); loadingDiv.style.display = 'none'; if (e.dataTransfer.files[0]) handleNewFile(e.dataTransfer.files[0]); }, false);
 
     setupModeButtons();
     setupDetailPanelLogic();
@@ -128,22 +123,69 @@ async function init() {
 
     notesInput.addEventListener('change', () => { if (currentFileName !== "Sin Archivo") saveProjectData(currentFileName, partsData, notesInput.value); });
 
-    // --- AUTO RELOAD CACHE ---
-    const cachedFile = await getCachedModel();
-    if (cachedFile) {
-        console.log("Restaurando modelo desde caché...");
-        loadLocalFile(cachedFile, true); // true = isCached
+    // --- AUTO RESUME FROM FIREBASE ---
+    const lastFile = localStorage.getItem('lastProjectName');
+    if (lastFile) {
+        console.log("Intentando recuperar sesión remota:", lastFile);
+        const data = await loadProjectData(lastFile);
+
+        if (data) {
+            currentFileName = data.fileName;
+
+            // CASO 1: CHUNKS (Firestore Fragmentado - Sin Bloqueos de Storage)
+            if (data.storageMode === 'firestore_chunks' || (!data.modelUrl && data.totalChunks)) {
+                loadingDiv.style.display = 'flex';
+                loadingDiv.querySelector('p').innerText = "🧩 REENSAMBLANDO FRAGMENTOS...";
+                const b64Data = await loadModelFromChunks(lastFile);
+                if (b64Data) {
+                    loadGLB(b64Data, currentFileName);
+                } else {
+                    console.error("Error reensamblando chunks.");
+                }
+            }
+            // CASO 2: LEGACY (Storage Bucket)
+            else if (data.modelUrl) {
+                currentModelUrl = data.modelUrl;
+                loadModelFromURL(data.modelUrl);
+            }
+        }
     }
 }
 
-function loadLocalFile(file, isCached = false) {
-    if (!isCached) cacheModel(file); // Guardar para F5 futuro
+// Nueva función de entrada: Gestiona Subida Cloud + Carga Local
+// Nueva función de entrada: Gestiona Subida Fragmentada (Chunks) + Carga Local
+async function handleNewFile(file) {
+    currentFileName = file.name;
+    loadingDiv.style.display = 'flex';
+    loadingDiv.querySelector('p').innerText = "🔨 FRAGMENTANDO Y GUARDANDO...";
 
-    const url = URL.createObjectURL(file);
+    // 1. Guardar como Chunks en Firestore (Bypass Storage)
+    const result = await saveModelAsChunks(file, currentFileName);
+
+    if (result.success) {
+        localStorage.setItem('lastProjectName', currentFileName);
+        // Guardar también datos vacíos iniciales
+        await saveProjectData(currentFileName, partsData, notesInput.value);
+    } else {
+        alert("Atención: No se pudo guardar en la nube (¿Sin conexión?). Se usará solo en memoria.");
+    }
+
+    // 2. Cargar visualmente (usando blob local para rapidez)
+    const blobUrl = URL.createObjectURL(file);
+    loadGLB(blobUrl, currentFileName);
+}
+
+// Función para recargar desde URL remota
+function loadModelFromURL(url) {
+    loadingDiv.style.display = 'flex';
+    loadingDiv.querySelector('p').innerText = "☁️ DESCARGANDO MODELO...";
+    loadGLB(url, currentFileName);
+}
+
+function loadGLB(url, fileName) {
     const loader = new GLTFLoader();
 
-    currentFileName = file.name;
-    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "PROCESANDO & SUAVIZANDO...";
+    loadingDiv.querySelector('p').innerText = "PROCESANDO GEOMETRÍA...";
 
     loader.load(url, async function (gltf) {
         if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); hideLabel(); closeTechCard(); }
@@ -157,18 +199,12 @@ function loadLocalFile(file, isCached = false) {
         model.traverse(function (obj) {
             if (obj.isMesh) {
                 obj.castShadow = true; obj.receiveShadow = true;
-
-                // SOLUCIÓN SOMBRAS RARAS: Recalcular normales para suavizar facetas
-                if (obj.geometry) {
-                    obj.geometry.computeVertexNormals();
-                }
-
                 if (obj.material) originalMaterials.set(obj.uuid, obj.material);
                 obj.userData.originalName = obj.name;
             }
         });
 
-        // --- NORMALIZACIÓN ---
+        // --- NORMALIZATION ---
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
         model.position.sub(center);
@@ -180,7 +216,7 @@ function loadLocalFile(file, isCached = false) {
         camera.position.set(12, 12, 12); controls.target.set(0, 0, 0); controls.update();
 
         loadingDiv.querySelector('p').innerText = "SINCRONIZANDO DB...";
-        const cloudData = await loadProjectData(currentFileName);
+        const cloudData = await loadProjectData(fileName);
 
         if (cloudData) {
             notesInput.value = cloudData.notes || "";
@@ -192,16 +228,16 @@ function loadLocalFile(file, isCached = false) {
         } else { notesInput.value = ""; dbMsg.innerText = "Proyecto Nuevo"; }
 
         generateLayersUI(model);
-        loadingDiv.style.display = 'none'; document.getElementById('system-status').innerText = `Modelo: ${file.name}`;
+        loadingDiv.style.display = 'none'; document.getElementById('system-status').innerText = `Modelo: ${fileName}`;
 
         if (gltf.animations.length > 0) {
             mixer = new THREE.AnimationMixer(model); allActions = [];
             gltf.animations.forEach(clip => { const action = mixer.clipAction(clip); action.setLoop(THREE.LoopOnce); action.clampWhenFinished = true; action.play(); allActions.push(action); });
             allActions.forEach(a => a.time = 0); mixer.update(0);
         }
-        URL.revokeObjectURL(url);
+        // No revoke URL if it's remote, but check if local blob
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
 
-        // Default to Clay (Random Pastel)
         setTimeout(() => { btnClay.click(); }, 150);
 
     }, undefined, (err) => { console.error(err); });
@@ -212,6 +248,7 @@ function generateLayersUI(model) {
     const objects = [];
     model.traverse(child => { if (child.isMesh) objects.push(child); });
     if (objects.length === 0) { layersList.innerHTML = '<p style="font-size:0.7rem; color:#666">No se detectaron capas.</p>'; return; }
+
     objects.sort((a, b) => a.name.localeCompare(b.name));
 
     const groups = {};
@@ -228,7 +265,8 @@ function generateLayersUI(model) {
             const header = document.createElement('div'); header.className = 'layer-group-header';
             const toggleIcon = document.createElement('span'); toggleIcon.className = 'group-toggle-icon'; toggleIcon.innerText = '▶';
             const check = document.createElement('input'); check.type = 'checkbox'; check.checked = true; check.className = 'layer-check';
-            const title = document.createElement('span'); title.innerText = `${baseName} (${groupObjs.length})`;
+            const title = document.createElement('span'); title.className = 'group-title';
+            title.innerText = `${baseName} (${groupObjs.length})`;
 
             header.onclick = (e) => { if (e.target === check) return; content.classList.toggle('open'); toggleIcon.classList.toggle('open'); };
             check.onchange = (e) => { const state = e.target.checked; groupObjs.forEach(obj => obj.visible = state); content.querySelectorAll('input').forEach(chk => chk.checked = state); };
@@ -246,27 +284,68 @@ function generateLayersUI(model) {
 
 function createLayerItem(obj, isRoot) {
     const div = document.createElement('div'); div.className = 'layer-item';
-    if (isRoot) div.style.paddingLeft = '4px';
     div.dataset.uuid = obj.uuid;
+    if (isRoot) div.style.paddingLeft = '4px';
+
     const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = obj.visible;
     if (isRoot) checkbox.className = 'layer-check';
     checkbox.onchange = (e) => { obj.visible = e.target.checked; };
+
     const displayName = (partsData[obj.uuid] && partsData[obj.uuid].customName) ? partsData[obj.uuid].customName : obj.name;
-    const label = document.createElement('span'); label.className = 'layer-name'; label.innerText = displayName || "Sin Nombre";
+    const label = document.createElement('span'); label.className = 'layer-name';
+    label.innerText = displayName || "Sin Nombre";
+
+    // --- ENABLE DIRECT EDITING (Double Click) ---
+    label.title = "Doble click para editar nombre";
+    label.ondblclick = (e) => {
+        e.stopPropagation();
+        label.contentEditable = true;
+        label.focus();
+        label.classList.add('editing');
+    };
+    label.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            label.blur();
+        }
+    };
+    label.onblur = async () => {
+        label.contentEditable = false;
+        label.classList.remove('editing');
+        const newName = label.innerText.trim();
+        if (newName && newName !== displayName) {
+            // Update logic (simulated "Save Detail" btn click logic)
+            const mainStableName = obj.userData.originalName || obj.name;
+            partsData[obj.uuid] = { ...(partsData[obj.uuid] || {}), customName: newName, stableName: mainStableName };
+
+            // Sync to tech card if selected
+            if (selectedObject === obj) {
+                detailName.value = newName;
+                document.getElementById('card-title').innerText = newName;
+            }
+
+            // Save to DB
+            const partsForCloud = {}; Object.values(partsData).forEach(p => { if (p.stableName) partsForCloud[p.stableName] = p; });
+            dbMsg.innerText = "Guardando...";
+            await saveProjectData(currentFileName, partsForCloud, notesInput.value);
+            dbMsg.innerText = "Actualizado ✅";
+        }
+    };
+
     div.appendChild(checkbox); div.appendChild(label);
     return div;
 }
 
 function updateLayerNameInList(uuid, newName) {
-    // 1. Update text
-    const items = layersList.querySelectorAll(`.layer-item[data-uuid="${uuid}"] .layer-name`);
-    items.forEach(item => {
-        item.innerText = newName;
-        // Animation
-        item.style.color = "#00f0ff";
-        item.style.textShadow = "0 0 5px #00f0ff";
-        setTimeout(() => { item.style.color = ""; item.style.textShadow = ""; }, 800);
-    });
+    const layerItem = layersList.querySelector(`.layer-item[data-uuid="${uuid}"]`);
+    if (layerItem) {
+        const label = layerItem.querySelector('.layer-name');
+        if (label) {
+            label.innerText = newName;
+            label.style.color = "#00f0ff";
+            setTimeout(() => { label.style.color = ""; }, 800);
+        }
+    }
 }
 
 function setupLayersLogic() {
@@ -371,7 +450,6 @@ function setupModeButtons() {
         if (!currentModel) return;
         const matWire = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true });
 
-        // --- COLORES PASTEL RANDOM (Smart Pastel) ---
         const colorMap = new Map();
 
         currentModel.traverse((obj) => {
@@ -381,7 +459,7 @@ function setupModeButtons() {
                     let randColor;
                     if (colorMap.has(obj.uuid)) { randColor = colorMap.get(obj.uuid); }
                     else {
-                        // PASTEL ALEATORIO
+                        // PASTEL RANDOM ORIGINAL
                         const h = Math.random();
                         const s = 0.5 + Math.random() * 0.2;
                         const l = 0.6 + Math.random() * 0.2;
