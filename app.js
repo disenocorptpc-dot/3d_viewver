@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { saveProjectData, loadProjectData, saveModelAsChunks, loadModelFromChunks, getAllProjects, deleteProject } from './db_manager.js';
+import { saveProjectData, loadProjectData, saveModelAsChunks, loadModelFromChunks, getAllProjects, deleteProject, sanitizeName } from './db_manager.js';
 
 // --- CONFIG ---
 const BG_COLOR = 0x0f1115;

@@ -137,7 +137,7 @@ export async function loadProjectData(fileName) {
     }
 }
 
-function sanitizeName(name) {
+export function sanitizeName(name) {
     // Reemplazar ., /, espacios por guiones bajos
     return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 }
