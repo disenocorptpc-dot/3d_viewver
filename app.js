@@ -80,11 +80,11 @@ function init() {
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2); scene.add(hemiLight);
 
-    // HEADLAMP: Luz pegada a la cámara
+    // HEADLAMP (Luz frontal segura)
     const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
     dirLight.position.set(0, 0, 1);
     camera.add(dirLight);
-    scene.add(camera); // Importante: Agregar cámara a la escena
+    scene.add(camera);
 
     const spotLight = new THREE.SpotLight(0x00f0ff, 5.0); spotLight.position.set(-6, 4, -4); spotLight.lookAt(0, 0, 0); scene.add(spotLight);
     const grid = new THREE.GridHelper(30, 30, 0x333333, 0x111111); grid.name = "floor_grid"; scene.add(grid);
@@ -130,7 +130,7 @@ function loadLocalFile(file) {
     const loader = new GLTFLoader();
 
     currentFileName = file.name;
-    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "CALCULANDO MODELO...";
+    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "CARGANDO MODELO...";
 
     loader.load(url, async function (gltf) {
         if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); hideLabel(); closeTechCard(); }
@@ -141,38 +141,33 @@ function loadLocalFile(file) {
         currentModel = model;
         scene.add(model);
 
-        let skeletonObj = null;
         model.traverse(function (obj) {
             if (obj.isMesh) {
                 obj.castShadow = true; obj.receiveShadow = true;
                 if (obj.material) originalMaterials.set(obj.uuid, obj.material);
                 obj.userData.originalName = obj.name;
-                if (obj.name.toLowerCase().includes('esqueleto') || obj.name.toLowerCase().includes('base')) {
-                    if (!skeletonObj) skeletonObj = obj;
-                }
             }
         });
 
-        const box = new THREE.Box3();
-        if (skeletonObj) {
-            box.setFromObject(skeletonObj);
-        } else {
-            box.setFromObject(model);
-        }
-
+        // --- CENTRADO CLÁSICO (INFALIBLE) ---
+        const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
+        // Mover modelo para que su centro geométrico esté en 0,0,0
         model.position.sub(center);
+        // Subir un poco si queda muy enterrado (opcional, pero estético)
+        const size = box.getSize(new THREE.Vector3());
+        model.position.y += size.y * 0.15;
 
-        // Auto-Zoom Safe
+        // --- AUTO-ZOOM (Fit to Screen) ---
+        // Recalcular bounding box tras moverlo
         const totalBox = new THREE.Box3().setFromObject(model);
-        const size = totalBox.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
+
         const fov = camera.fov * (Math.PI / 180);
         let cameraDist = Math.abs(maxDim / 2 * Math.tan(fov * 2));
-        cameraDist *= 2.0; // x2 Safety Margin
-        if (cameraDist < 2) cameraDist = 5; // Min dist fallback
+        cameraDist *= 2.5; // Margen de seguridad amplio (x2.5)
 
-        camera.position.set(cameraDist, cameraDist * 0.6, cameraDist);
+        camera.position.set(cameraDist, cameraDist * 0.8, cameraDist);
         controls.target.set(0, 0, 0);
         controls.update();
 
