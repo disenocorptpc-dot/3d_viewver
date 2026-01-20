@@ -748,93 +748,145 @@ button:hover {
     background: #fff;
 }
 
-/* --- MOBILE RESPONSIVE --- */
-@media (max-width: 768px) {
+/* --- MOBILE RESPONSIVE (Optimizada para Visualización 3D) --- */
+@media (max-width: 1024px) {
     .mobile-hide {
         display: none !important;
     }
 
+    /* HEADER: Compacto y horizontal */
     .top-bar {
         flex-direction: row;
-        /* Volver a fila ahora que cabe */
-        height: 60px;
+        height: 50px;
         padding: 0 10px;
         align-items: center;
         justify-content: space-between;
+        z-index: 1002;
     }
 
     .logo {
-        font-size: 1rem;
+        font-size: 0.9rem;
     }
 
     .actions {
         width: auto;
-        gap: 15px;
-        /* Más espacio entre iconos */
+        gap: 10px;
     }
 
     .btn-primary,
     .btn-tech {
         flex: none;
-        width: 44px;
-        /* Tamaño dedo */
-        height: 44px;
+        width: 40px;
+        height: 40px;
         padding: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         border-radius: 8px;
     }
 
-    /* El botón de abrir tiene margen inline en HTML, lo reseteamos */
     #btn-open-projects {
         margin-right: 0 !important;
     }
 
-    /* Paneles laterales - Más discretos */
+    /* LAYOUT: Romper el flex horizontal que aplasta el 3D */
+    .main-content {
+        display: block;
+        /* Importante: deja de ser flex row */
+        position: relative;
+    }
+
+    /* VISOR 3D: Ocupa todo el fondo */
+    .viewer-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: 1;
+        /* Al fondo */
+    }
+
+    /* PANEL IZQUIERDO (Visualización): Flotante transparente */
     .info-panel {
-        width: 160px;
-        font-size: 0.70rem;
-        left: 10px;
-        top: 70px;
-        /* Justo debajo del header */
-        background: rgba(20, 20, 25, 0.6);
-        /* Más transparente */
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 200px;
+        /* Más estrecho */
+        height: auto;
+        max-height: 50vh;
+        background: rgba(10, 10, 15, 0.7);
+        /* Transparente */
         backdrop-filter: blur(5px);
-        max-height: 200px;
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 100;
+        padding: 10px;
+        gap: 10px;
+    }
+
+    /* PANEL DERECHO (Detalles): Bottom Sheet (Hoja inferior) */
+    .detail-panel {
+        position: absolute;
+        top: auto;
+        bottom: 0px;
+        left: 0;
+        width: 100%;
+        height: 35vh;
+        /* Ocupa solo el 35% inferior */
+        background: rgba(15, 15, 20, 0.9);
+        border-left: none;
+        border-top: 2px solid var(--accent);
+        z-index: 101;
+        padding: 15px;
         overflow-y: auto;
     }
 
-    .layer-panel {
-        bottom: 80px;
-        right: 10px;
-        transform: scale(0.9);
-        transform-origin: bottom right;
-    }
-
+    /* CONTROLES VISOR (Play/Pause) */
     .viewer-controls {
-        bottom: 20px;
-        gap: 15px;
+        bottom: 36vh;
+        /* Justo encima del panel de detalles */
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        padding: 10px;
+        z-index: 99;
+        gap: 10px;
     }
 
     .control-btn {
-        width: 48px;
-        height: 48px;
-        font-size: 1.4rem;
-        background: rgba(0, 0, 0, 0.7);
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
     }
 
-    /* Modal adaptativo */
+    /* Capas: Ocultar o flotar pequeño (esquina superior derecha) */
+    .layer-panel {
+        position: absolute;
+        bottom: auto;
+        top: 60px;
+        right: 10px;
+        width: 40px;
+        height: 40px;
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 50%;
+        display: none;
+        /* Ocultamos capas en móvil por ahora para limpiar */
+    }
+
+    /* MODAL */
     .modal-content {
         width: 95%;
-        height: 90vh;
+        height: 85vh;
+        margin-top: 20px;
     }
 
     .project-card {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
+        align-items: stretch;
     }
 
     .project-card>div:last-child {
@@ -850,5 +902,4 @@ button:hover {
         margin: 0 5px;
         padding: 10px;
     }
-}
 }
