@@ -61,10 +61,8 @@ function init() {
     const container = document.getElementById('scene-container');
     scene = new THREE.Scene();
     scene.background = new THREE.Color(BG_COLOR);
-    // FOG LEJANO para evitar oscurecer modelos grandes
     scene.fog = new THREE.Fog(BG_COLOR, 50, 500);
 
-    // CAMARA CON RANGO EXTENDIDO (0.1 a 100,000)
     camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100000);
     camera.position.set(10, 10, 10);
 
@@ -85,15 +83,10 @@ function init() {
     camera.add(dirLight);
     scene.add(camera);
 
-    // Grid Gigante
+    // Grid Floor
     const grid = new THREE.GridHelper(500, 50, 0x333333, 0x111111); grid.name = "floor_grid"; scene.add(grid);
 
-    // TEST CUBE (Testigo rojo en 0,0,0)
-    const geo = new THREE.BoxGeometry(1, 1, 1);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
-    const cube = new THREE.Mesh(geo, mat);
-    cube.name = "TestCube";
-    scene.add(cube);
+    // REMOVED TEST CUBE
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = 0.05;
@@ -137,7 +130,7 @@ function loadLocalFile(file) {
     const loader = new GLTFLoader();
 
     currentFileName = file.name;
-    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "NORMALIZANDO ESCALA...";
+    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "PROCESANDO...";
 
     loader.load(url, async function (gltf) {
         if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); hideLabel(); closeTechCard(); }
@@ -156,27 +149,22 @@ function loadLocalFile(file) {
             }
         });
 
-        // --- NORMALIZACIÓN DE ESCALA RADICAL ---
+        // --- NORMALIZACIÓN ---
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
-
-        // 1. Centrar
         model.position.sub(center);
 
-        // 2. Escalar a tamaño estándar (ej: 10 unidades)
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
 
         let scaleFactor = 1.0;
         if (maxDim > 0) {
-            scaleFactor = 10.0 / maxDim; // Forzar que mida 10 unidades
+            scaleFactor = 10.0 / maxDim;
         }
         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-        console.log(`Original Size: ${maxDim}. Scaling by: ${scaleFactor} to Size: 10`);
-
-        // 3. Ajustar Cámara
-        camera.position.set(15, 15, 15);
+        // --- AJUSTE CÁMARA (Ligeramente más cerca que antes para detalle) ---
+        camera.position.set(12, 12, 12); // Un poco más cerca
         controls.target.set(0, 0, 0);
         controls.update();
 
@@ -208,7 +196,7 @@ function loadLocalFile(file) {
         }
         URL.revokeObjectURL(url);
 
-        // Clay mode + Quitar el cubo de test si todo va bien (opcional, lo dejo para ref)
+        // Clay mode default
         setTimeout(() => { btnClay.click(); }, 150);
 
     }, undefined, (err) => { console.error(err); });
@@ -288,7 +276,7 @@ function onPointerDown(event) {
     const intersects = raycaster.intersectObject(currentModel, true);
 
     if (intersects.length > 0) {
-        const hit = intersects.find(h => h.object.visible && h.object.name !== "TestCube" && h.object.type !== "GridHelper");
+        const hit = intersects.find(h => h.object.visible && h.object.type !== "GridHelper");
         if (!hit) return;
         selectedObject = hit.object; updateDetailPanel();
         const mat = hit.object.material;
@@ -364,20 +352,36 @@ function updateDetailPanel() {
 }
 function showLabel(x, y, text) { floatingLabel.innerText = text; floatingLabel.style.display = 'block'; const labelW = floatingLabel.offsetWidth; const labelH = floatingLabel.offsetHeight; floatingLabel.style.left = (x - labelW / 2) + 'px'; floatingLabel.style.top = (y - labelH - 10) + 'px'; floatingLabel.style.opacity = 0; setTimeout(() => floatingLabel.style.opacity = 1, 10); }
 function hideLabel() { floatingLabel.style.display = 'none'; }
+
 function setupModeButtons() {
     const setMode = (mode) => {
         [btnOrig, btnClay, btnWire].forEach(b => b.classList.remove('active'));
         if (mode === 'ORIG') btnOrig.classList.add('active'); if (mode === 'CLAY') btnClay.classList.add('active'); if (mode === 'WIRE') btnWire.classList.add('active');
         if (!currentModel) return;
         const matWire = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true });
+
+        // --- PRO CLAY PALETTE (Grises técnicos) ---
         const colorMap = new Map();
+
         currentModel.traverse((obj) => {
-            if (obj.isMesh && obj.name !== "TestCube") {
+            if (obj.isMesh) {
                 if (mode === 'ORIG') { if (originalMaterials.has(obj.uuid)) obj.material = originalMaterials.get(obj.uuid); }
                 else if (mode === 'CLAY') {
-                    let randColor; if (colorMap.has(obj.uuid)) { randColor = colorMap.get(obj.uuid); }
-                    else { const h = Math.random(); const s = 0.5 + Math.random() * 0.2; const l = 0.6 + Math.random() * 0.2; randColor = new THREE.Color().setHSL(h, s, l); colorMap.set(obj.uuid, randColor); }
-                    obj.material = new THREE.MeshStandardMaterial({ color: randColor, roughness: 0.8 });
+                    let randColor;
+                    if (colorMap.has(obj.uuid)) { randColor = colorMap.get(obj.uuid); }
+                    else {
+                        // TECH GREYSCALE: Saturation Baja, Lightness media-alta
+                        const h = 0.6; // Azulado
+                        const s = 0.05 + Math.random() * 0.1; // Muy poco saturado
+                        const l = 0.4 + Math.random() * 0.4;  // Gris medio/claro
+                        randColor = new THREE.Color().setHSL(h, s, l);
+                        colorMap.set(obj.uuid, randColor);
+                    }
+                    obj.material = new THREE.MeshStandardMaterial({
+                        color: randColor,
+                        roughness: 0.6,
+                        metalness: 0.2
+                    });
                 }
                 else if (mode === 'WIRE') { obj.material = matWire; }
             }
@@ -385,15 +389,15 @@ function setupModeButtons() {
     };
     btnOrig.onclick = () => setMode('ORIG'); btnClay.onclick = () => setMode('CLAY'); btnWire.onclick = () => setMode('WIRE');
 }
+
 function captureTransparentView() {
     if (!renderer) return;
     const oldBg = scene.background; const oldFog = scene.fog; const grid = scene.getObjectByName('floor_grid');
-    const cube = scene.getObjectByName('TestCube');
     const wasVisible = techCard.classList.contains('visible'); closeTechCard();
-    if (grid) grid.visible = false; if (cube) cube.visible = false; scene.background = null; scene.fog = null;
+    if (grid) grid.visible = false; scene.background = null; scene.fog = null;
     renderer.render(scene, camera);
     const dataURL = renderer.domElement.toDataURL('image/png');
-    scene.background = oldBg; scene.fog = oldFog; if (grid) grid.visible = true; if (cube) cube.visible = true; if (wasVisible) showTechCard(selectedObject);
+    scene.background = oldBg; scene.fog = oldFog; if (grid) grid.visible = true; if (wasVisible) showTechCard(selectedObject);
     printImg.src = dataURL; printFile.textContent = currentFileName; printDate.textContent = new Date().toLocaleDateString();
     printNotesDst.innerText = notesInput.value.trim() || "Sin observaciones generales.";
     printDetailsGrid.innerHTML = ''; const printedNames = new Set();
