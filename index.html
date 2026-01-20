@@ -94,12 +94,14 @@
     <div class="app-container no-print">
 
         <header class="top-bar">
-            <div class="logo"><span class="icon">💠</span> ENGINE<b>CORE</b>_V5.14</div>
+            <div class="logo"><span class="icon">💠</span> <span class="mobile-hide">ENGINE<b>CORE</b>_V5.14</span>
+            </div>
             <div class="actions">
-                <button class="btn-primary" id="btn-open-projects" style="margin-right: 10px;">📂 Abrir
-                    Proyecto</button>
-                <button class="btn-tech" id="btn-screenshot">📸 Capturar</button>
-                <button class="btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+                <button class="btn-primary" id="btn-open-projects" style="margin-right: 10px;">📂 <span
+                        class="mobile-hide">Abrir Proyecto</span></button>
+                <button class="btn-tech" id="btn-screenshot">📸 <span class="mobile-hide">Capturar</span></button>
+                <button class="btn-primary" onclick="printTechnicalSheet()">🖨️ <span
+                        class="mobile-hide">Imprimir</span></button>
             </div>
         </header>
 

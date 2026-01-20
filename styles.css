@@ -750,62 +750,79 @@ button:hover {
 
 /* --- MOBILE RESPONSIVE --- */
 @media (max-width: 768px) {
+    .mobile-hide {
+        display: none !important;
+    }
+
     .top-bar {
-        flex-direction: column;
-        height: auto;
-        padding: 10px;
-        gap: 10px;
+        flex-direction: row;
+        /* Volver a fila ahora que cabe */
+        height: 60px;
+        padding: 0 10px;
+        align-items: center;
+        justify-content: space-between;
     }
 
     .logo {
         font-size: 1rem;
-        margin-bottom: 5px;
     }
 
     .actions {
-        width: 100%;
-        justify-content: space-between;
-        display: flex;
-        gap: 5px;
+        width: auto;
+        gap: 15px;
+        /* Más espacio entre iconos */
     }
 
     .btn-primary,
     .btn-tech {
-        flex: 1;
-        font-size: 0.7rem;
-        padding: 8px 4px;
-        text-align: center;
+        flex: none;
+        width: 44px;
+        /* Tamaño dedo */
+        height: 44px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        border-radius: 8px;
     }
 
-    /* Paneles laterales flotantes en vez de fijos si ocupan mucho */
+    /* El botón de abrir tiene margen inline en HTML, lo reseteamos */
+    #btn-open-projects {
+        margin-right: 0 !important;
+    }
+
+    /* Paneles laterales - Más discretos */
     .info-panel {
-        width: 180px;
-        font-size: 0.75rem;
+        width: 160px;
+        font-size: 0.70rem;
         left: 10px;
-        top: 140px;
-        /* Debajo del header expandido */
+        top: 70px;
+        /* Justo debajo del header */
+        background: rgba(20, 20, 25, 0.6);
+        /* Más transparente */
+        backdrop-filter: blur(5px);
+        max-height: 200px;
+        overflow-y: auto;
     }
 
     .layer-panel {
-        top: auto;
-        bottom: 100px;
+        bottom: 80px;
         right: 10px;
-        max-height: 150px;
+        transform: scale(0.9);
+        transform-origin: bottom right;
     }
 
     .viewer-controls {
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 5px;
         bottom: 20px;
-        width: 90%;
+        gap: 15px;
     }
 
     .control-btn {
-        width: 40px;
-        height: 40px;
-        font-size: 1.2rem;
-        /* Iconos más grandes para tocar */
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+        background: rgba(0, 0, 0, 0.7);
     }
 
     /* Modal adaptativo */
@@ -833,4 +850,5 @@ button:hover {
         margin: 0 5px;
         padding: 10px;
     }
+}
 }
