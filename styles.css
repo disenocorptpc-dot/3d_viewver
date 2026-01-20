@@ -198,7 +198,6 @@ body {
     flex-direction: column;
     gap: 20px;
     height: 100%;
-    /* Importante height 100% */
 }
 
 .panel-section {
@@ -214,12 +213,9 @@ body {
     flex-direction: column;
 }
 
-/* Crece y scrollea */
-
-/* CAPAS EXPANDIBLES */
+/* CAPAS EXPANDIBLES (V5.5 MEJORADO) */
 .layers-container {
     flex: 1;
-    /* Ocupa el resto */
     overflow-y: auto;
     overflow-x: hidden;
     background: rgba(0, 0, 0, 0.3);
@@ -242,6 +238,52 @@ body {
 .layer-name {
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+}
+
+/* GRUPOS DE CAPAS */
+.layer-group {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 2px;
+}
+
+.layer-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    color: #ddd;
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.layer-group-header:hover {
+    background: rgba(0, 240, 255, 0.1);
+    color: var(--accent);
+}
+
+.group-toggle-icon {
+    font-size: 0.6rem;
+    transition: transform 0.2s;
+    width: 12px;
+    text-align: center;
+}
+
+.group-toggle-icon.open {
+    transform: rotate(90deg);
+}
+
+.layer-group-content {
+    padding-left: 20px;
+    display: none;
+    border-left: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+/* Indentación */
+.layer-group-content.open {
+    display: block;
 }
 
 .mini-btn {
@@ -314,6 +356,13 @@ button {
 
 button:hover {
     background: var(--accent-dim);
+    border-color: var(--accent);
+}
+
+/* CLAY MODE DEFAULT ACTIVE STATE FIXED BY JS, SO STYLE REMAINS SAME */
+.tool-btn.active {
+    background: var(--accent);
+    color: #000;
     border-color: var(--accent);
 }
 
