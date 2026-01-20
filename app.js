@@ -67,7 +67,6 @@ function init() {
     scene.fog = new THREE.Fog(BG_COLOR, 15, 60);
 
     camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    // Posición inicial default, luego se ajusta al cargar
     camera.position.set(5, 5, 5);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
@@ -80,8 +79,14 @@ function init() {
     container.appendChild(renderer.domElement);
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2); scene.add(hemiLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2.5); dirLight.position.set(5, 12, 8); dirLight.castShadow = true; scene.add(dirLight);
-    const spotLight = new THREE.SpotLight(0x00f0ff, 8.0); spotLight.position.set(-6, 4, -4); spotLight.lookAt(0, 0, 0); scene.add(spotLight);
+
+    // HEADLAMP: Luz pegada a la cámara
+    const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
+    dirLight.position.set(0, 0, 1);
+    camera.add(dirLight);
+    scene.add(camera); // Importante: Agregar cámara a la escena
+
+    const spotLight = new THREE.SpotLight(0x00f0ff, 5.0); spotLight.position.set(-6, 4, -4); spotLight.lookAt(0, 0, 0); scene.add(spotLight);
     const grid = new THREE.GridHelper(30, 30, 0x333333, 0x111111); grid.name = "floor_grid"; scene.add(grid);
 
     controls = new OrbitControls(camera, renderer.domElement);
@@ -125,7 +130,7 @@ function loadLocalFile(file) {
     const loader = new GLTFLoader();
 
     currentFileName = file.name;
-    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "CALCULANDO GEOMETRÍA...";
+    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "CALCULANDO MODELO...";
 
     loader.load(url, async function (gltf) {
         if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); hideLabel(); closeTechCard(); }
@@ -136,51 +141,40 @@ function loadLocalFile(file) {
         currentModel = model;
         scene.add(model);
 
-        // 1. Detección de "ESQUELETO" o centro
         let skeletonObj = null;
-
         model.traverse(function (obj) {
             if (obj.isMesh) {
                 obj.castShadow = true; obj.receiveShadow = true;
                 if (obj.material) originalMaterials.set(obj.uuid, obj.material);
                 obj.userData.originalName = obj.name;
-
-                // Buscar pieza clave
                 if (obj.name.toLowerCase().includes('esqueleto') || obj.name.toLowerCase().includes('base')) {
-                    if (!skeletonObj) skeletonObj = obj; // Quedarse con el primero
+                    if (!skeletonObj) skeletonObj = obj;
                 }
             }
         });
 
-        // 2. Centrado Inteligente
-        // Calcular centro geométrico del objeto clave o de todo el modelo
         const box = new THREE.Box3();
         if (skeletonObj) {
-            box.setFromObject(skeletonObj); // Centrar basado en esqueleto
-            console.log("Centrando en pieza clave:", skeletonObj.name);
+            box.setFromObject(skeletonObj);
         } else {
-            box.setFromObject(model); // Centrar basado en todo
+            box.setFromObject(model);
         }
 
         const center = box.getCenter(new THREE.Vector3());
-        // Mover TODO el modelo para que ese punto sea (0,0,0)
         model.position.sub(center);
 
-        // 3. Auto-Zoom (Fit to Screen)
-        // Recalcular bounding box total ahora que está centrado
+        // Auto-Zoom Safe
         const totalBox = new THREE.Box3().setFromObject(model);
         const size = totalBox.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-
-        // Calcular distancia ideal cámara
         const fov = camera.fov * (Math.PI / 180);
         let cameraDist = Math.abs(maxDim / 2 * Math.tan(fov * 2));
-        cameraDist *= 1.5; // Multiplicador para dar aire
+        cameraDist *= 2.0; // x2 Safety Margin
+        if (cameraDist < 2) cameraDist = 5; // Min dist fallback
 
         camera.position.set(cameraDist, cameraDist * 0.6, cameraDist);
-        controls.target.set(0, 0, 0); // Mirar al centro (que es el Esqueleto)
+        controls.target.set(0, 0, 0);
         controls.update();
-
 
         loadingDiv.querySelector('p').innerText = "SINCRONIZANDO DB...";
         const cloudData = await loadProjectData(currentFileName);
@@ -210,7 +204,7 @@ function loadLocalFile(file) {
         }
         URL.revokeObjectURL(url);
 
-        setTimeout(() => { btnClay.click(); }, 100); // Clay default
+        setTimeout(() => { btnClay.click(); }, 150);
 
     }, undefined, (err) => { console.error(err); });
 }
