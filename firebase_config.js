@@ -1,18 +1,11 @@
-// --- CONFIGURACIÓN DE FIREBASE ---
-// 1. Ve a https://console.firebase.google.com/
-// 2. Crea un proyecto nuevo.
-// 3. Ve a "Configuración del Proyecto" > "General" > "Tus apps" > "Web" (icono </>)
-// 4. Copia el objeto 'firebaseConfig' y pégalo aquí abajo, reemplazando este bloque.
+// --- CONFIGURACIÓN DE FIREBASE (StudioSync) ---
 
 export const firebaseConfig = {
-    apiKey: "GIVE_ME_YOUR_API_KEY",
-    authDomain: "tu-proyecto.firebaseapp.com",
-    projectId: "tu-proyecto",
-    storageBucket: "tu-proyecto.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abcdef123456"
+    apiKey: "AIzaSyB5AO9mkc3qs3KZT0ZsqxcEIdHrrG7jPMw",
+    authDomain: "studiosync-71756.firebaseapp.com",
+    projectId: "studiosync-71756",
+    storageBucket: "studiosync-71756.firebasestorage.app",
+    messagingSenderId: "484459543444",
+    appId: "1:484459543444:web:dbdb8af70d1ca7a6fe6d81",
+    measurementId: "G-B8Q67D0SVR"
 };
-
-// NOTA: Para que esto funcione, en Firebase Console debes:
-// A. Ir a "Firestore Database" > Crear Base de Datos > Empezar en "Modo de prueba".
-// B. (Opcional para fotos reales) Ir a "Storage" > Empezar en "Modo de prueba".
