@@ -83,10 +83,7 @@ function init() {
     camera.add(dirLight);
     scene.add(camera);
 
-    // Grid Floor
     const grid = new THREE.GridHelper(500, 50, 0x333333, 0x111111); grid.name = "floor_grid"; scene.add(grid);
-
-    // REMOVED TEST CUBE
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = 0.05;
@@ -163,8 +160,7 @@ function loadLocalFile(file) {
         }
         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-        // --- AJUSTE CÁMARA (Ligeramente más cerca que antes para detalle) ---
-        camera.position.set(12, 12, 12); // Un poco más cerca
+        camera.position.set(12, 12, 12);
         controls.target.set(0, 0, 0);
         controls.update();
 
@@ -225,6 +221,8 @@ function generateLayersUI(model) {
             const toggleIcon = document.createElement('span'); toggleIcon.className = 'group-toggle-icon'; toggleIcon.innerText = '▶';
             const check = document.createElement('input'); check.type = 'checkbox'; check.checked = true; check.className = 'layer-check';
             const title = document.createElement('span'); title.innerText = `${baseName} (${groupObjs.length})`;
+            title.className = 'group-title'; // Identificador para updates
+            title.dataset.basename = baseName;
 
             header.onclick = (e) => { if (e.target === check) return; content.classList.toggle('open'); toggleIcon.classList.toggle('open'); };
             check.onchange = (e) => { const state = e.target.checked; groupObjs.forEach(obj => obj.visible = state); content.querySelectorAll('input').forEach(chk => chk.checked = state); };
@@ -253,9 +251,16 @@ function createLayerItem(obj, isRoot) {
     return div;
 }
 
+// UPDATE EN TIEMPO REAL (V5.10)
 function updateLayerNameInList(uuid, newName) {
-    const item = layersList.querySelector(`.layer-item[data-uuid="${uuid}"] .layer-name`);
-    if (item) item.innerText = newName;
+    // Buscar la etiqueta especifica
+    const itemLabel = layersList.querySelector(`.layer-item[data-uuid="${uuid}"] .layer-name`);
+    if (itemLabel) {
+        itemLabel.innerText = newName;
+        // Animación sutil
+        itemLabel.style.color = "#00f0ff";
+        setTimeout(() => { itemLabel.style.color = ""; }, 500);
+    }
 }
 
 function setupLayersLogic() {
@@ -370,18 +375,11 @@ function setupModeButtons() {
                     let randColor;
                     if (colorMap.has(obj.uuid)) { randColor = colorMap.get(obj.uuid); }
                     else {
-                        // TECH GREYSCALE: Saturation Baja, Lightness media-alta
-                        const h = 0.6; // Azulado
-                        const s = 0.05 + Math.random() * 0.1; // Muy poco saturado
-                        const l = 0.4 + Math.random() * 0.4;  // Gris medio/claro
+                        const h = 0.6; const s = 0.05 + Math.random() * 0.1; const l = 0.4 + Math.random() * 0.4;
                         randColor = new THREE.Color().setHSL(h, s, l);
                         colorMap.set(obj.uuid, randColor);
                     }
-                    obj.material = new THREE.MeshStandardMaterial({
-                        color: randColor,
-                        roughness: 0.6,
-                        metalness: 0.2
-                    });
+                    obj.material = new THREE.MeshStandardMaterial({ color: randColor, roughness: 0.6, metalness: 0.2 });
                 }
                 else if (mode === 'WIRE') { obj.material = matWire; }
             }
