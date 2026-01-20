@@ -85,12 +85,16 @@ export async function saveModelAsChunks(file, rawFileName) {
 export async function loadModelFromChunks(docId) {
     if (!isConnected) return null;
     try {
-        console.log(`🧩 Reensamblando ${docId}...`);
-        const chunksCol = collection(db, "proyectos_3d", docId, "chunks");
+        const safeId = sanitizeName(docId);
+        console.log(`🧩 Reensamblando ${safeId}...`);
+        const chunksCol = collection(db, "proyectos_3d", safeId, "chunks");
         const q = query(chunksCol, orderBy("index"));
         const snap = await getDocs(q);
 
-        if (snap.empty) return null;
+        if (snap.empty) {
+            console.warn("Chunks vacíos para:", safeId);
+            return null;
+        }
 
         let fullData = "";
         snap.forEach(d => fullData += d.data().data);
