@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visor Técnico - Engine Core v3.1</title>
+    <title>Visor Técnico - Engine Core v4.0</title>
     <link rel="stylesheet" href="styles.css">
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap"
@@ -22,7 +22,10 @@
 
 <body>
 
-    <!-- ZONA DE IMPRESIÓN MEJORADA -->
+    <!-- ETIQUETA FLOTANTE 3D -->
+    <div id="floating-label" class="label-3d no-print">Part Name</div>
+
+    <!-- ZONA DE IMPRESIÓN -->
     <div id="print-layout">
         <div class="print-header">
             <div class="print-logo">💠 ENGINE<b>CORE</b> REPORT</div>
@@ -31,18 +34,13 @@
                 <p>Ref: <span id="print-filename">Sin Archivo</span></p>
             </div>
         </div>
-
         <div class="print-content">
-            <!-- La imagen capturada irá aquí -->
             <img id="print-snapshot" src="" alt="Vista 3D">
-
-            <!-- Las observaciones irán aquí -->
             <div class="print-notes-section">
                 <h3>OBSERVACIONES TÉCNICAS:</h3>
                 <p id="print-notes-dest">Sin observaciones registradas.</p>
             </div>
         </div>
-
         <div class="print-footer">
             <p>Generado automáticamente por EngineCore 3D Web Viewer - DisenoCorp</p>
         </div>
@@ -53,14 +51,14 @@
 
         <header class="top-bar">
             <div class="logo">
-                <span class="icon">💠</span> ENGINE<b>CORE</b>_V3.1
+                <span class="icon">💠</span> ENGINE<b>CORE</b>_V4.0
             </div>
             <div class="actions">
                 <button class="btn-tech" id="btn-screenshot">
-                    📸 Capturar (PNG Transparente)
+                    📸 Capturar
                 </button>
                 <button class="btn-primary" onclick="window.print()">
-                    🖨️ Imprimir PDF
+                    🖨️ Imprimir
                 </button>
             </div>
         </header>
@@ -71,19 +69,24 @@
                 <div class="panel-header">
                     <h2>VISUALIZACIÓN</h2>
                 </div>
-
                 <div class="tools-grid">
                     <button class="tool-btn active" id="mode-original">🎨 Render</button>
-                    <button class="tool-btn" id="mode-clay">🏳️ Clay</button>
+                    <button class="tool-btn" id="mode-clay">🎲 Clay</button>
                     <button class="tool-btn" id="mode-wire">🕸️ Wire</button>
                 </div>
 
+                <!-- NUEVO: CAPAS -->
                 <div class="panel-header" style="margin-top: 20px;">
-                    <h2>BITÁCORA / NOTAS</h2>
+                    <h2>CAPAS / OBJETOS</h2>
                 </div>
-                <textarea id="notes-input"
-                    placeholder="Escribe aquí las observaciones para el reporte (ej. Materiales, Acabados, Instrucciones de ensamblaje)..."></textarea>
+                <div id="layers-list" class="layers-container">
+                    <p style="font-size:0.7rem; color:#666">Carga un modelo para ver las capas.</p>
+                </div>
 
+                <div class="panel-header" style="margin-top: 20px;">
+                    <h2>BITÁCORA</h2>
+                </div>
+                <textarea id="notes-input" placeholder="Observaciones para el reporte..."></textarea>
 
                 <div class="description" style="margin-top:auto">
                     <p id="system-status">Esperando modelo...</p>
@@ -95,7 +98,6 @@
                     <div class="crosshair"></div>
                     <p>ARRASTRA TU .GLB AQUÍ</p>
                 </div>
-
                 <div class="viewer-controls glass-panel">
                     <span style="font-size: 0.8rem; color: var(--text-secondary);">EXPLOSIÓN:</span>
                     <input type="range" id="explosion-slider" min="0" max="100" value="0" class="tech-slider">

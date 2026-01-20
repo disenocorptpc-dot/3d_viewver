@@ -22,13 +22,79 @@ body {
     overflow: hidden;
 }
 
-/* --- PRINT LAYOUT (Solo visible al imprimir) --- */
+/* --- PRINT LAYOUT --- */
 #print-layout {
     display: none;
     background: white;
     color: #333;
     padding: 0;
     font-family: 'Inter', sans-serif;
+}
+
+/* --- LAYERS LIST (NUEVO) --- */
+.layers-container {
+    max-height: 150px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.3);
+    border: var(--border);
+    padding: 5px;
+}
+
+.layer-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px;
+    font-size: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+}
+
+.layer-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.layer-item input {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.layer-item span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- 3D LABEL (NUEVO) --- */
+.label-3d {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.8);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    pointer-events: none;
+    /* Click through */
+    display: none;
+    /* Oculto por defecto */
+    z-index: 100;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.label-3d::before {
+    /* Flechita abajo */
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-top: 5px solid var(--accent);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
 }
 
 /* --- APP LAYOUT --- */
@@ -103,14 +169,14 @@ button:hover {
     padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 10px;
     z-index: 10;
 }
 
 h2 {
     font-size: 0.7rem;
     color: var(--accent);
-    margin-bottom: 10px;
+    margin-bottom: 5px;
     letter-spacing: 1px;
     font-weight: 700;
 }
@@ -136,7 +202,7 @@ h2 {
 
 textarea#notes-input {
     width: 100%;
-    height: 150px;
+    height: 100px;
     background: rgba(0, 0, 0, 0.3);
     color: var(--text-primary);
     border: var(--border);
@@ -222,14 +288,10 @@ span#slider-val {
     text-align: right;
 }
 
-/* --- REGLAS DE IMPRESIÓN PRO --- */
+/* --- PRINT RULES (FLEXIBLE) --- */
 @media print {
-    @page {
-        margin: 1cm;
-        size: landscape;
-    }
+    /* REMOVIDO: @page { size: landscape; } para que el usuario elija en el diálogo de impresora */
 
-    /* Hoja Horizontal */
     body {
         background: white;
         height: auto;
@@ -243,7 +305,6 @@ span#slider-val {
     #print-layout {
         display: block;
         width: 100%;
-        height: 100%;
     }
 
     .print-header {
@@ -265,14 +326,13 @@ span#slider-val {
         color: #555;
     }
 
-    /* IMAGEN LIMPIA */
     #print-snapshot {
         display: block;
-        width: 80%;
+        width: 90%;
+        max-width: 100%;
         margin: 0 auto 20px auto;
+        /* Responsive */
         border: 1px solid #ccc;
-        border-radius: 4px;
-        /* La imagen ya viene transparente desde JS */
     }
 
     .print-notes-section {
@@ -289,16 +349,13 @@ span#slider-val {
 
     #print-notes-dest {
         white-space: pre-wrap;
-        /* Respetar saltos de linea */
         font-size: 0.9rem;
         line-height: 1.4;
         color: #333;
     }
 
     .print-footer {
-        position: fixed;
-        bottom: 0;
-        width: 100%;
+        margin-top: 30px;
         text-align: center;
         font-size: 0.7rem;
         color: #999;

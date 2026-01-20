@@ -11,13 +11,15 @@ let allActions = [];
 let currentModel = null;
 let originalMaterials = new Map();
 let currentFileName = "Sin Archivo";
+let raycaster, mouse; // Para interacción 3D
 
 // UI Elements & Print Elements
-const consoleDiv = document.getElementById('debug-console');
 const loadingDiv = document.getElementById('loading-overlay');
 const slider = document.getElementById('explosion-slider');
 const sliderVal = document.getElementById('slider-val');
 const notesInput = document.getElementById('notes-input');
+const layersList = document.getElementById('layers-list');
+const floatingLabel = document.getElementById('floating-label'); // NEW
 
 // Print Elements
 const btnScreenshot = document.getElementById('btn-screenshot');
@@ -29,19 +31,17 @@ const printNotesDst = document.getElementById('print-notes-dest');
 init();
 animate();
 
-function log(msg) {/* No-op para limpiar UI */ }
+function log(msg) { } // No-op
 
 function init() {
     const container = document.getElementById('scene-container');
     scene = new THREE.Scene();
-    // Fondo normal para visionado (se quitará al capturar)
     scene.background = new THREE.Color(BG_COLOR);
     scene.fog = new THREE.Fog(BG_COLOR, 15, 60);
 
     camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
     camera.position.set(6, 4, 6);
 
-    // ALPHA: TRUE es clave para que el PNG salga transparente
     renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -51,30 +51,18 @@ function init() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
-    hemiLight.position.set(0, 20, 0);
-    scene.add(hemiLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
-    dirLight.position.set(5, 12, 8);
-    dirLight.castShadow = true;
-    scene.add(dirLight);
-
-    const spotLight = new THREE.SpotLight(0x00f0ff, 8.0);
-    spotLight.position.set(-6, 4, -4);
-    spotLight.lookAt(0, 0, 0);
-    scene.add(spotLight);
-
-    // GRID Y FONDO (Se ocultarán al imprimir)
-    const grid = new THREE.GridHelper(30, 30, 0x333333, 0x111111);
-    grid.name = "floor_grid"; // Nombrar para encontrarlo fácil
-    scene.add(grid);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2); scene.add(hemiLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.5); dirLight.position.set(5, 12, 8); dirLight.castShadow = true; scene.add(dirLight);
+    const spotLight = new THREE.SpotLight(0x00f0ff, 8.0); spotLight.position.set(-6, 4, -4); spotLight.lookAt(0, 0, 0); scene.add(spotLight);
+    const grid = new THREE.GridHelper(30, 30, 0x333333, 0x111111); grid.name = "floor_grid"; scene.add(grid);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.target.set(0, 1, 0);
-    controls.update();
+    controls.enableDamping = true; controls.dampingFactor = 0.05; controls.target.set(0, 1, 0); controls.update();
+
+    // INTERACCIÓN
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
 
     window.addEventListener('dragover', (e) => { e.preventDefault(); loadingDiv.style.display = 'flex'; }, false);
     window.addEventListener('dragleave', (e) => { loadingDiv.style.display = 'none'; }, false);
@@ -84,10 +72,7 @@ function init() {
     }, false);
 
     setupModeButtons();
-
-    // CAPTURA INTELIGENTE
     btnScreenshot.addEventListener('click', captureTransparentView);
-
     window.addEventListener('resize', onWindowResize);
 
     slider.addEventListener('input', (e) => {
@@ -102,6 +87,8 @@ function init() {
             mixer.update(0);
         }
     });
+
+    log('Engine v4.0 listo.');
 }
 
 function loadLocalFile(file) {
@@ -109,11 +96,10 @@ function loadLocalFile(file) {
     const loader = new GLTFLoader();
     currentFileName = file.name;
 
-    loadingDiv.style.display = 'flex';
-    loadingDiv.querySelector('p').innerText = "CARGANDO...";
+    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "CARGANDO...";
 
     loader.load(url, function (gltf) {
-        if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); }
+        if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); floatingLabel.style.display = 'none'; }
 
         const model = gltf.scene;
         currentModel = model;
@@ -130,6 +116,9 @@ function loadLocalFile(file) {
         model.position.sub(box.getCenter(new THREE.Vector3()));
         const size = box.getSize(new THREE.Vector3());
         model.position.y += size.y * 0.1;
+
+        // V4.0 GENERAR CAPAS
+        generateLayersUI(model);
 
         loadingDiv.style.display = 'none';
         document.getElementById('system-status').innerText = `Modelo: ${file.name}\nSize: ${size.x.toFixed(2)}x${size.y.toFixed(2)}`;
@@ -148,6 +137,102 @@ function loadLocalFile(file) {
     }, undefined, (err) => { console.error(err); });
 }
 
+// --- V4.0 GESTOR DE CAPAS ---
+function generateLayersUI(model) {
+    layersList.innerHTML = ''; // Limpiar lista
+
+    // Buscar objetos directos o grupos relevantes
+    const objects = [];
+
+    // Si la jerarquia es plana, buscar meshes. Si es compleja, buscar hijos directos.
+    // Estrategia simple: Listar hijos directos de la escena root del GLTF
+    model.children.forEach(child => {
+        // Ignorar camaras/luces si vinieran exportadas
+        if (child.type === 'Mesh' || child.type === 'Group' || child.type === 'Object3D') {
+            objects.push(child);
+        }
+    });
+
+    if (objects.length === 0) {
+        layersList.innerHTML = '<p style="font-size:0.7rem; color:#666">No se detectaron capas.</p>';
+        return;
+    }
+
+    objects.forEach(obj => {
+        const div = document.createElement('div');
+        div.className = 'layer-item';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = obj.visible;
+        checkbox.onchange = (e) => {
+            obj.visible = e.target.checked;
+        };
+
+        const label = document.createElement('span');
+        label.className = 'layer-name';
+        label.innerText = obj.name || "Sin Nombre";
+
+        // Click en nombre para resaltar? (Futuro)
+
+        div.appendChild(checkbox);
+        div.appendChild(label);
+        layersList.appendChild(div);
+    });
+}
+
+// --- V4.0 INTERACCIÓN ETIQUETAS ---
+function onPointerDown(event) {
+    if (!currentModel) return;
+
+    // Calcular coord raton relativo al canvas
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObject(currentModel, true);
+
+    if (intersects.length > 0) {
+        const hit = intersects[0];
+        const objName = hit.object.name || "Objeto";
+
+        // Mostrar Etiqueta
+        showLabel(event.clientX, event.clientY, objName);
+
+        // Efecto visual (flash)
+        const mat = hit.object.material;
+        if (mat && mat.emissive) {
+            const oldEmissive = mat.emissive.getHex();
+            mat.emissive.setHex(0x00ffff);
+            setTimeout(() => mat.emissive.setHex(oldEmissive), 200);
+        }
+    } else {
+        hideLabel();
+    }
+}
+
+function showLabel(x, y, text) {
+    floatingLabel.innerText = text;
+    floatingLabel.style.display = 'block';
+
+    // Ajustar posición para que quede encima del ratón
+    // Y que no se salga de la pantalla
+    const labelW = floatingLabel.offsetWidth;
+    const labelH = floatingLabel.offsetHeight;
+
+    floatingLabel.style.left = (x - labelW / 2) + 'px';
+    floatingLabel.style.top = (y - labelH - 10) + 'px';
+
+    // Animar entrada
+    floatingLabel.style.opacity = 0;
+    setTimeout(() => floatingLabel.style.opacity = 1, 10);
+}
+function hideLabel() {
+    floatingLabel.style.display = 'none';
+}
+
 function setupModeButtons() {
     const btnOrig = document.getElementById('mode-original');
     const btnClay = document.getElementById('mode-clay');
@@ -159,52 +244,54 @@ function setupModeButtons() {
         if (mode === 'WIRE') btnWire.classList.add('active');
 
         if (!currentModel) return;
-        const matClay = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0 });
+
+        // WIRE
         const matWire = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true });
+
+        // V4.0 SMART CLAY (Random Colors)
+        // Usamos un mapa para que el color sea persistente por UUID
+        const colorMap = new Map();
 
         currentModel.traverse((obj) => {
             if (obj.isMesh) {
-                if (mode === 'ORIG') { if (originalMaterials.has(obj.uuid)) obj.material = originalMaterials.get(obj.uuid); }
-                else if (mode === 'CLAY') obj.material = matClay;
-                else if (mode === 'WIRE') obj.material = matWire;
+                if (mode === 'ORIG') {
+                    if (originalMaterials.has(obj.uuid)) obj.material = originalMaterials.get(obj.uuid);
+                }
+                else if (mode === 'CLAY') {
+                    // Generar color aleatorio pero estable basado en su nombre o ID
+                    let randColor;
+                    if (colorMap.has(obj.uuid)) {
+                        randColor = colorMap.get(obj.uuid);
+                    } else {
+                        // Generar color pastel
+                        const h = Math.random();
+                        const s = 0.5 + Math.random() * 0.2; // Sat media
+                        const l = 0.6 + Math.random() * 0.2; // Light alta
+                        randColor = new THREE.Color().setHSL(h, s, l);
+                        colorMap.set(obj.uuid, randColor);
+                    }
+                    obj.material = new THREE.MeshStandardMaterial({ color: randColor, roughness: 0.8 });
+                }
+                else if (mode === 'WIRE') {
+                    obj.material = matWire;
+                }
             }
         });
     };
     btnOrig.onclick = () => setMode('ORIG'); btnClay.onclick = () => setMode('CLAY'); btnWire.onclick = () => setMode('WIRE');
 }
 
-// --- CAPTURA TRANSPARENTE 3.1 ---
 function captureTransparentView() {
     if (!renderer) return;
-
-    // 1. GUARDAR ESTADO ACTUAL
-    const oldBg = scene.background;
-    const oldFog = scene.fog;
-    const grid = scene.getObjectByName('floor_grid');
-    if (grid) grid.visible = false; // Ocultar rejilla
-
-    // 2. PREPARAR TRANSPARENCIA
-    scene.background = null; // Quitar fondo (transparente)
-    scene.fog = null;        // Quitar niebla
-
-    // 3. RENDERIZAR FRAME LIMPIO
+    const oldBg = scene.background; const oldFog = scene.fog; const grid = scene.getObjectByName('floor_grid');
+    if (grid) grid.visible = false; scene.background = null; scene.fog = null;
     renderer.render(scene, camera);
     const dataURL = renderer.domElement.toDataURL('image/png');
-
-    // 4. RESTAURAR ESTADO NORMAL
-    scene.background = oldBg;
-    scene.fog = oldFog;
-    if (grid) grid.visible = true;
-
-    // 5. INYECTAR EN HTML IMPRESIÓN
+    scene.background = oldBg; scene.fog = oldFog; if (grid) grid.visible = true;
     printImg.src = dataURL;
     printFile.textContent = currentFileName;
     printDate.textContent = new Date().toLocaleDateString();
-
-    // Transferir Notas
-    const userNotes = notesInput.value.trim();
-    printNotesDst.innerText = userNotes || "Sin observaciones registradas.";
-
+    printNotesDst.innerText = notesInput.value.trim() || "Sin observaciones registradas.";
     alert("Captura Transparente Lista.\nRevisa el texto y dale a 'Imprimir PDF'.");
 }
 
@@ -215,5 +302,4 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(container.clientWidth, container.clientHeight);
 }
-
 function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
