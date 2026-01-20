@@ -533,29 +533,22 @@ function printTechnicalSheet() {
 
     const sharedLink = window.location.origin + window.location.pathname + "?project=" + sanitizeName(currentFileName);
 
-    // Preparar contenedor de notas con espacio para QR
+    // Preparar contenedor de notas limpio
     printNotesDst.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div style="flex:1; padding-right:20px;">
-                <strong>Observaciones:</strong><br>${notesInput.value.trim() || "Sin observaciones registradas."}
-            </div>
-            <div style="text-align:center;">
-                <div id="print-qrcode" style="margin-bottom:5px;"></div>
-                <div style="font-size:0.6em; color:#666; max-width:120px; overflow-wrap:break-word;">
-                    ${sharedLink}
-                </div>
-            </div>
+        <strong>Observaciones:</strong><br>${notesInput.value.trim() || "Sin observaciones registradas."}<br><br>
+        <div style="font-size:0.75em; color:#666;">
+            🔗 Enlace Digital: ${sharedLink}
         </div>
     `;
 
-    // Generar QR Real
-    const qrContainer = document.getElementById('print-qrcode');
+    // Generar QR Real en el FOOTER
+    const qrContainer = document.getElementById('print-footer-qr');
     if (qrContainer && window.QRCode) {
         qrContainer.innerHTML = ""; // Limpiar previos
         new QRCode(qrContainer, {
             text: sharedLink,
-            width: 100,
-            height: 100,
+            width: 60,
+            height: 60,
             colorDark: "#000000",
             colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.M
