@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { saveProjectData, loadProjectData, saveModelAsChunks, loadModelFromChunks, getAllProjects } from './db_manager.js';
+import { saveProjectData, loadProjectData, saveModelAsChunks, loadModelFromChunks, getAllProjects, deleteProject } from './db_manager.js';
 
 // --- CONFIG ---
 const BG_COLOR = 0x0f1115;
@@ -528,6 +528,7 @@ function renderProjectList(projects) {
     projects.forEach(p => {
         const card = document.createElement('div');
         card.className = 'project-card';
+        card.style.cursor = 'default';
 
         const dateStr = new Date(p.lastUpdate).toLocaleString();
 
@@ -537,23 +538,41 @@ function renderProjectList(projects) {
                 <p>📅 ${dateStr}</p>
                 <p>📝 ${p.notes ? p.notes.substring(0, 30) + '...' : 'Sin notas'}</p>
             </div>
-            <button class="btn-load-proj">ABRIR</button>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button class="btn-load-proj">ABRIR</button>
+                <button class="btn-del-proj" style="background:none; border:none; cursor:pointer;" title="Eliminar">🗑️</button>
+            </div>
         `;
 
-        // Load on click
-        card.onclick = () => {
+        // Load listener (Load Btn)
+        const btnLoad = card.querySelector('.btn-load-proj');
+        btnLoad.onclick = (e) => {
             projectsModal.style.display = 'none';
-            // Trigger load logic
-            localStorage.setItem('lastProjectName', p.docId); // Save sanitized ID
-
-            // Re-use auto resume logic manually
+            localStorage.setItem('lastProjectName', p.docId);
             loadingDiv.style.display = 'flex';
             loadingDiv.querySelector('p').innerText = "🔄 CAMBIANDO PROYECTO...";
-
-            // Force reload via init logic or direct call? 
-            // Better direct call to avoid full page reload if possible, but full reload is safer for cleanup.
-            // Let's try direct call first.
             loadProjectByDocId(p.docId);
+        };
+
+        // Delete listener (Trash Btn)
+        const btnDel = card.querySelector('.btn-del-proj');
+        btnDel.onclick = async (e) => {
+            if (confirm(`¿ELIMINAR PROYECTO?\n"${p.fileName}"\n\nEsta acción no se puede deshacer.`)) {
+                btnDel.innerText = "⏳";
+                const success = await deleteProject(p.docId);
+                if (success) {
+                    card.style.opacity = '0';
+                    setTimeout(() => {
+                        card.remove();
+                        if (projectListContainer.children.length === 0) {
+                            projectListContainer.innerHTML = '<p style="color:#aaa; text-align:center;">No hay proyectos guardados aún.</p>';
+                        }
+                    }, 300);
+                } else {
+                    alert("Error: No se pudo eliminar.");
+                    btnDel.innerText = "🗑️";
+                }
+            }
         };
 
         projectListContainer.appendChild(card);

@@ -163,3 +163,15 @@ export async function getAllProjects() {
         return [];
     }
 }
+
+export async function deleteProject(docId) {
+    if (!isConnected) return false;
+    try {
+        await deleteDoc(doc(db, "proyectos_3d", docId));
+        console.log(`🗑️ Proyecto ${docId} eliminado.`);
+        return true;
+    } catch (e) {
+        console.error("Error eliminando proyecto:", e);
+        return false;
+    }
+}
