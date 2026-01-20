@@ -130,31 +130,23 @@ async function init() {
 
     notesInput.addEventListener('change', () => { if (currentFileName !== "Sin Archivo") saveProjectData(currentFileName, partsData, notesInput.value); });
 
-    // --- AUTO RESUME FROM FIREBASE ---
-    const lastFile = localStorage.getItem('lastProjectName');
-    if (lastFile) {
-        console.log("Intentando recuperar sesión remota:", lastFile);
-        const data = await loadProjectData(lastFile);
+    // --- CHECK URL PARAMS FOR SHARED PROJECT ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedDocId = urlParams.get('project');
 
-        if (data) {
-            currentFileName = data.fileName;
-
-            // CASO 1: CHUNKS (Firestore Fragmentado - Sin Bloqueos de Storage)
-            if (data.storageMode === 'firestore_chunks' || (!data.modelUrl && data.totalChunks)) {
-                loadingDiv.style.display = 'flex';
-                loadingDiv.querySelector('p').innerText = "🧩 REENSAMBLANDO FRAGMENTOS...";
-                const b64Data = await loadModelFromChunks(lastFile);
-                if (b64Data) {
-                    loadGLB(b64Data, currentFileName);
-                } else {
-                    console.error("Error reensamblando chunks.");
-                }
-            }
-            // CASO 2: LEGACY (Storage Bucket)
-            else if (data.modelUrl) {
-                currentModelUrl = data.modelUrl;
-                loadModelFromURL(data.modelUrl);
-            }
+    if (sharedDocId) {
+        console.log("🔗 Modo Compartido Detectado. Cargando:", sharedDocId);
+        setReadOnlyMode();
+        loadProjectByDocId(sharedDocId);
+    }
+    else {
+        // --- NORMAL AUTO RESUME ---
+        const lastFile = localStorage.getItem('lastProjectName');
+        if (lastFile) {
+            console.log("Intentando recuperar sesión remota:", lastFile);
+            loadProjectByDocId(lastFile);
+        } else {
+            console.log("No active session found.");
         }
     }
 }
@@ -539,10 +531,21 @@ function renderProjectList(projects) {
                 <p>📝 ${p.notes ? p.notes.substring(0, 30) + '...' : 'Sin notas'}</p>
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
+                <button class="btn-share-proj" style="background:none; border:none; cursor:pointer;" title="Copiar Link para Compartir">🔗</button>
                 <button class="btn-load-proj">ABRIR</button>
                 <button class="btn-del-proj" style="background:none; border:none; cursor:pointer;" title="Eliminar">🗑️</button>
             </div>
         `;
+
+        // Share Listener
+        const btnShare = card.querySelector('.btn-share-proj');
+        btnShare.onclick = (e) => {
+            e.stopPropagation();
+            const url = window.location.origin + window.location.pathname + "?project=" + p.docId;
+            navigator.clipboard.writeText(url).then(() => {
+                alert("🔗 Link copiado al portapapeles:\n" + url);
+            });
+        };
 
         // Load listener (Load Btn)
         const btnLoad = card.querySelector('.btn-load-proj');
@@ -577,6 +580,19 @@ function renderProjectList(projects) {
 
         projectListContainer.appendChild(card);
     });
+}
+
+function setReadOnlyMode() {
+    // Hide administrative controls
+    if (btnOpenProjects) btnOpenProjects.style.display = 'none';
+
+    // Disable Drag & Drop
+    document.body.ondrop = (e) => { e.preventDefault(); alert("🚫 Modo Solo Lectura: No se pueden subir nuevos archivos."); };
+
+    // Update UI title
+    document.querySelector('.logo').innerHTML += ' <span style="font-size:0.7em; color:#aaa;">(VIEWER)</span>';
+
+    console.log("🔒 Modo Solo Lectura Activado");
 }
 
 async function loadProjectByDocId(docId) {
