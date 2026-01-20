@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visor Técnico - Engine Core v5.3</title>
+    <title>Visor Técnico - Engine Core v5.4</title>
     <link rel="stylesheet" href="styles.css">
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap"
@@ -25,7 +25,7 @@
     <!-- TOOLTIP SIMPLE (HOVER) -->
     <div id="floating-label" class="label-3d no-print">Part Name</div>
 
-    <!-- TARJETA HOLOGRÁFICA (CLICK) v5.3 -->
+    <!-- TARJETA HOLOGRÁFICA (CLICK) -->
     <div id="tech-card" class="tech-card-3d no-print" style="display: none;">
         <div class="card-header">
             <span id="card-title">NOMBRE PIEZA</span>
@@ -38,10 +38,8 @@
 
             <p id="card-desc">Descripción técnica...</p>
 
-            <!-- DATOS TÉCNICOS (MOVIDO ABAJO + SVG ICONS) -->
             <div class="card-specs">
                 <div id="card-dims-row" class="spec-row">
-                    <!-- ICONO MEDIDAS (Ruler/Arrows) -->
                     <svg class="tech-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 6H3M21 18H3M6 3v18M18 3v18" opacity="0.5" stroke-dasharray="2 2" />
                         <path d="M2 12h20" />
@@ -50,7 +48,6 @@
                     <span id="card-dims">-</span>
                 </div>
                 <div id="card-weight-row" class="spec-row">
-                    <!-- ICONO PESO (Weight) -->
                     <svg class="tech-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 3v18" />
                         <path d="M4 8h16M4 8l2 9h12l2-9" />
@@ -92,7 +89,7 @@
     <div class="app-container no-print">
 
         <header class="top-bar">
-            <div class="logo"><span class="icon">💠</span> ENGINE<b>CORE</b>_V5.3</div>
+            <div class="logo"><span class="icon">💠</span> ENGINE<b>CORE</b>_V5.4</div>
             <div class="actions">
                 <button class="btn-tech" id="btn-screenshot">📸 Capturar</button>
                 <button class="btn-primary" onclick="window.print()">🖨️ Imprimir</button>
@@ -101,27 +98,37 @@
 
         <main class="main-content">
 
+            <!-- PANEL IZQUIERDO MEJORADO -->
             <section class="info-panel glass-panel">
-                <div class="panel-header">
-                    <h2>VISUALIZACIÓN</h2>
+                <div class="panel-section">
+                    <div class="panel-header">
+                        <h2>VISUALIZACIÓN</h2>
+                    </div>
+                    <div class="tools-grid">
+                        <button class="tool-btn active" id="mode-original">🎨 Render</button>
+                        <button class="tool-btn" id="mode-clay">🎲 Clay</button>
+                        <button class="tool-btn" id="mode-wire">🕸️ Wire</button>
+                    </div>
                 </div>
-                <div class="tools-grid">
-                    <button class="tool-btn active" id="mode-original">🎨 Render</button>
-                    <button class="tool-btn" id="mode-clay">🎲 Clay</button>
-                    <button class="tool-btn" id="mode-wire">🕸️ Wire</button>
+
+                <div class="panel-section flex-grow">
+                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center">
+                        <h2>CAPAS</h2>
+                        <button id="btn-toggle-all-layers" class="mini-btn" title="Mostrar/Ocultar Todo">👁️</button>
+                    </div>
+                    <div id="layers-list" class="layers-container">
+                        <p style="font-size:0.7rem; color:#666">Cargando...</p>
+                    </div>
                 </div>
-                <div class="panel-header" style="margin-top: 20px;">
-                    <h2>CAPAS</h2>
-                </div>
-                <div id="layers-list" class="layers-container">
-                    <p style="font-size:0.7rem; color:#666">Cargando...</p>
-                </div>
-                <div class="panel-header" style="margin-top: 20px;">
-                    <h2>BITÁCORA</h2>
-                </div>
-                <textarea id="notes-input" placeholder="Observaciones generales..."></textarea>
-                <div class="description" style="margin-top:auto">
-                    <p id="system-status">Esperando modelo...</p>
+
+                <div class="panel-section">
+                    <div class="panel-header">
+                        <h2>BITÁCORA</h2>
+                    </div>
+                    <textarea id="notes-input" placeholder="Observaciones generales..."></textarea>
+                    <div class="description">
+                        <p id="system-status">Esperando modelo...</p>
+                    </div>
                 </div>
             </section>
 
@@ -178,7 +185,21 @@
                         <label>LINK COMPRA / URL:</label>
                         <input type="text" id="detail-link" class="tech-input" placeholder="https://...">
                     </div>
-                    <div class="detail-actions" style="margin-top: auto;">
+
+                    <!-- SMART BULK OPTION -->
+                    <div class="detail-group"
+                        style="margin-top:10px; padding:5px; background:rgba(0,240,255,0.05); border:1px dashed #00f0ff; border-radius:4px;">
+                        <label
+                            style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#00f0ff; font-weight:bold;">
+                            <input type="checkbox" id="check-apply-bulk">
+                            Aplicar a copias similares
+                        </label>
+                        <p style="font-size:0.6rem; color:#888; margin-left:20px; margin-top:2px;">
+                            (Ej: Si editas "Perno", aplica a "Perno.001", "Perno.002"...)
+                        </p>
+                    </div>
+
+                    <div class="detail-actions" style="margin-top: 20px;">
                         <button class="btn-tech" id="btn-save-detail" style="width:100%">💾 GUARDAR</button>
                     </div>
                     <div class="db-status" id="db-msg"
