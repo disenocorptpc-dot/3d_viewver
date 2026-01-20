@@ -14,7 +14,7 @@ let originalMaterials = new Map();
 let currentFileName = "Sin Archivo";
 let raycaster, mouse;
 let selectedObject = null;
-let partsData = {}; // { uuid: {name, desc, img, stableName} }
+let partsData = {}; // { uuid: {name, desc, img, stableName, customName, dims, weight, link} }
 
 // UI
 const loadingDiv = document.getElementById('loading-overlay');
@@ -23,15 +23,18 @@ const sliderVal = document.getElementById('slider-val');
 const notesInput = document.getElementById('notes-input');
 const layersList = document.getElementById('layers-list');
 const floatingLabel = document.getElementById('floating-label');
-const techCard = document.getElementById('tech-card'); // V5.1 Pop-up
-const dbMsg = document.getElementById('db-msg'); // Helper status
+const techCard = document.getElementById('tech-card');
+const dbMsg = document.getElementById('db-msg');
 
 // Detail Panel
 const detailPanel = document.getElementById('detail-panel');
 const detailContent = document.getElementById('part-details-content');
 const emptyMsg = document.getElementById('empty-selection-msg');
-const detailName = document.getElementById('detail-name');
+const detailName = document.getElementById('detail-name'); // Ahora editable
 const detailDesc = document.getElementById('detail-desc');
+const detailDims = document.getElementById('detail-dims'); // V5.2
+const detailWeight = document.getElementById('detail-weight'); // V5.2
+const detailLink = document.getElementById('detail-link'); // V5.2
 const detailImgZone = document.getElementById('detail-img-zone');
 const detailImgInput = document.getElementById('detail-img-input');
 const detailImgPreview = document.getElementById('detail-img-preview');
@@ -81,14 +84,11 @@ function init() {
 
     window.addEventListener('dragover', (e) => { e.preventDefault(); loadingDiv.style.display = 'flex'; }, false);
     window.addEventListener('dragleave', (e) => { loadingDiv.style.display = 'none'; }, false);
-    window.addEventListener('drop', (e) => {
-        e.preventDefault(); loadingDiv.style.display = 'none';
-        if (e.dataTransfer.files[0]) loadLocalFile(e.dataTransfer.files[0]);
-    }, false);
+    window.addEventListener('drop', (e) => { e.preventDefault(); loadingDiv.style.display = 'none'; if (e.dataTransfer.files[0]) loadLocalFile(e.dataTransfer.files[0]); }, false);
 
     setupModeButtons();
     setupDetailPanelLogic();
-    setupTechCardLogic(); // V5.1
+    setupTechCardLogic();
 
     btnScreenshot.addEventListener('click', captureTransparentView);
     window.addEventListener('resize', onWindowResize);
@@ -103,19 +103,11 @@ function init() {
             const targetTime = maxDuration * (percent / 100);
             allActions.forEach(action => action.time = targetTime);
             mixer.update(0);
-
-            // Si hay tarjeta abierta, actualizar su posición
-            if (selectedObject && techCard.style.display !== 'none') {
-                updateTechCardPosition();
-            }
+            if (selectedObject && techCard.style.display !== 'none') updateTechCardPosition();
         }
     });
 
-    notesInput.addEventListener('change', () => {
-        if (currentFileName !== "Sin Archivo") {
-            saveProjectData(currentFileName, partsData, notesInput.value);
-        }
-    });
+    notesInput.addEventListener('change', () => { if (currentFileName !== "Sin Archivo") saveProjectData(currentFileName, partsData, notesInput.value); });
 }
 
 function loadLocalFile(file) {
@@ -128,9 +120,7 @@ function loadLocalFile(file) {
     loader.load(url, async function (gltf) {
         if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); hideLabel(); closeTechCard(); }
 
-        partsData = {};
-        selectedObject = null;
-        updateDetailPanel();
+        partsData = {}; selectedObject = null; updateDetailPanel();
 
         const model = gltf.scene;
         currentModel = model;
@@ -145,9 +135,7 @@ function loadLocalFile(file) {
         });
 
         const box = new THREE.Box3().setFromObject(model);
-        model.position.sub(box.getCenter(new THREE.Vector3()));
-        const size = box.getSize(new THREE.Vector3());
-        model.position.y += size.y * 0.1;
+        model.position.sub(box.getCenter(new THREE.Vector3())); const size = box.getSize(new THREE.Vector3()); model.position.y += size.y * 0.1;
 
         generateLayersUI(model);
 
@@ -155,10 +143,8 @@ function loadLocalFile(file) {
         const cloudData = await loadProjectData(currentFileName);
 
         if (cloudData) {
-            console.log("Datos cargados:", cloudData);
             notesInput.value = cloudData.notes || "";
             const cloudParts = cloudData.parts || {};
-            // Mapear Nombres a UUIDs
             model.traverse((obj) => {
                 if (obj.isMesh && cloudParts[obj.name]) {
                     partsData[obj.uuid] = cloudParts[obj.name];
@@ -170,17 +156,11 @@ function loadLocalFile(file) {
             dbMsg.innerText = "Proyecto Nuevo";
         }
 
-        loadingDiv.style.display = 'none';
-        document.getElementById('system-status').innerText = `Modelo: ${file.name}\nSize: ${size.x.toFixed(2)}x${size.y.toFixed(2)}`;
+        loadingDiv.style.display = 'none'; document.getElementById('system-status').innerText = `Modelo: ${file.name}\nSize: ${size.x.toFixed(2)}x${size.y.toFixed(2)}`;
 
         if (gltf.animations.length > 0) {
-            mixer = new THREE.AnimationMixer(model);
-            allActions = [];
-            gltf.animations.forEach(clip => {
-                const action = mixer.clipAction(clip);
-                action.setLoop(THREE.LoopOnce); action.clampWhenFinished = true; action.play();
-                allActions.push(action);
-            });
+            mixer = new THREE.AnimationMixer(model); allActions = [];
+            gltf.animations.forEach(clip => { const action = mixer.clipAction(clip); action.setLoop(THREE.LoopOnce); action.clampWhenFinished = true; action.play(); allActions.push(action); });
             allActions.forEach(a => a.time = 0); mixer.update(0);
         }
         URL.revokeObjectURL(url);
@@ -188,16 +168,15 @@ function loadLocalFile(file) {
 }
 
 function generateLayersUI(model) {
-    layersList.innerHTML = '';
-    const objects = [];
-    model.children.forEach(child => {
-        if (child.type === 'Mesh' || child.type === 'Group' || child.type === 'Object3D') objects.push(child);
-    });
+    layersList.innerHTML = ''; const objects = [];
+    model.children.forEach(child => { if (child.type === 'Mesh' || child.type === 'Group' || child.type === 'Object3D') objects.push(child); });
     if (objects.length === 0) { layersList.innerHTML = '<p style="font-size:0.7rem; color:#666">No se detectaron capas.</p>'; return; }
     objects.forEach(obj => {
         const div = document.createElement('div'); div.className = 'layer-item';
         const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = obj.visible;
         checkbox.onchange = (e) => { obj.visible = e.target.checked; };
+        // Si hay nombre custom, usar ese. Sino el original
+        // NOTA: Para este MVP no actualizamos la lista de capas dinámicamente al renombrar, para mantenerlo simple.
         const label = document.createElement('span'); label.className = 'layer-name'; label.innerText = obj.name || "Sin Nombre";
         div.appendChild(checkbox); div.appendChild(label); layersList.appendChild(div);
     });
@@ -206,8 +185,7 @@ function generateLayersUI(model) {
 function onPointerDown(event) {
     if (!currentModel) return;
     const rect = renderer.domElement.getBoundingClientRect();
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1; mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObject(currentModel, true);
 
@@ -218,24 +196,19 @@ function onPointerDown(event) {
 
         const mat = hit.object.material;
         if (mat && mat.emissive) {
-            const oldEmissive = mat.emissive.getHex();
-            mat.emissive.setHex(0x00ffff);
-            setTimeout(() => mat.emissive.setHex(oldEmissive), 300);
+            const oldEmissive = mat.emissive.getHex(); mat.emissive.setHex(0x00ffff); setTimeout(() => mat.emissive.setHex(oldEmissive), 300);
         }
 
-        // V5.1 Lógica Tech Card
-        // Si hay datos, mostrar tarjeta. Si no, solo label
-        if (partsData[selectedObject.uuid] && (partsData[selectedObject.uuid].desc || partsData[selectedObject.uuid].img)) {
+        // V5.2 Check if visible info
+        const data = partsData[selectedObject.uuid];
+        if (data && (data.desc || data.img || data.customName || data.dims || data.weight || data.link)) {
             showTechCard(selectedObject);
         } else {
-            closeTechCard(); // Cerrar si clicamos uno sin info
+            closeTechCard();
             showLabel(event.clientX, event.clientY, hit.object.name || "Objeto");
         }
-
     } else {
-        hideLabel();
-        // Si clic en vacío, ¿cerramos?
-        // closeTechCard();
+        hideLabel(); // closeTechCard();
     }
 }
 
@@ -249,54 +222,46 @@ function showTechCard(object) {
     const data = partsData[object.uuid];
     if (!data) return;
 
-    hideLabel(); // Ocultar tooltip simple
+    hideLabel();
 
-    document.getElementById('card-title').innerText = data.name || object.name;
+    // USAR NOMBRE CUSTOM SI EXISTE
+    document.getElementById('card-title').innerText = data.customName || object.name;
     const imgBox = document.getElementById('card-img');
     const descBox = document.getElementById('card-desc');
 
-    if (data.img) {
-        imgBox.src = data.img;
-        imgBox.parentElement.style.display = 'block';
+    // Card Specs V5.2
+    document.getElementById('card-dims').innerText = data.dims || '-';
+    document.getElementById('card-weight').innerText = data.weight || '-';
+
+    if (data.img) { imgBox.src = data.img; imgBox.parentElement.style.display = 'block'; }
+    else { imgBox.parentElement.style.display = 'none'; imgBox.src = ""; }
+
+    descBox.innerText = data.desc || "Sin descripción.";
+
+    // Link V5.2
+    const btnLink = document.getElementById('card-link');
+    if (data.link && data.link.startsWith('http')) {
+        btnLink.href = data.link;
+        btnLink.style.display = 'block';
     } else {
-        imgBox.parentElement.style.display = 'none';
-        imgBox.src = "";
+        btnLink.style.display = 'none';
     }
 
-    descBox.innerText = data.desc || "Sin descripción técnica.";
-
-    techCard.style.display = 'block';
-    // Forzar reflow para animación
-    void techCard.offsetWidth;
-    techCard.classList.add('visible');
-
+    techCard.style.display = 'block'; void techCard.offsetWidth; techCard.classList.add('visible');
     updateTechCardPosition();
 }
 
 function closeTechCard() {
-    techCard.classList.remove('visible');
-    setTimeout(() => { if (!techCard.classList.contains('visible')) techCard.style.display = 'none'; }, 300);
+    techCard.classList.remove('visible'); setTimeout(() => { if (!techCard.classList.contains('visible')) techCard.style.display = 'none'; }, 300);
 }
 
 function updateTechCardPosition() {
     if (!selectedObject || techCard.style.display === 'none') return;
-
-    // Proyectar posición del objeto al 2D
-    const pos = new THREE.Vector3();
-    selectedObject.getWorldPosition(pos);
-    pos.project(camera); // -1 a +1
-
+    const pos = new THREE.Vector3(); selectedObject.getWorldPosition(pos); pos.project(camera);
     const rect = renderer.domElement.getBoundingClientRect();
-    const x = (pos.x * .5 + .5) * rect.width + rect.left;
-    const y = (-(pos.y * .5) - .5) * rect.height + rect.top + rect.height; // Invertir Y correctamente
-
-    // Posicionar tarjeta encima y centrada
-    // Offset Y arbitrario para no tapar el objeto
-    const cardH = techCard.offsetHeight;
-    const cardW = techCard.offsetWidth;
-
-    techCard.style.left = (x - cardW / 2) + 'px';
-    techCard.style.top = (y - cardH - 20) + 'px'; // 20px arriba
+    const x = (pos.x * .5 + .5) * rect.width + rect.left; const y = (-(pos.y * .5) - .5) * rect.height + rect.top + rect.height;
+    const cardH = techCard.offsetHeight; const cardW = techCard.offsetWidth;
+    techCard.style.left = (x - cardW / 2) + 'px'; techCard.style.top = (y - cardH - 20) + 'px';
 }
 
 function setupDetailPanelLogic() {
@@ -317,17 +282,20 @@ function setupDetailPanelLogic() {
         }
     });
 
-    // GUARDAR 
+    // GUARDAR V5.2
     btnSaveDetail.onclick = async () => {
         if (!selectedObject) return;
         const uuid = selectedObject.uuid;
-        const nameKey = selectedObject.name || "unnamed";
+        const stableName = selectedObject.userData.originalName || selectedObject.name; // IMPORTANTE: Nombre Original Blender
 
         partsData[uuid] = {
-            name: detailName.value,
+            customName: detailName.value, // Nombre editado
             desc: detailDesc.value,
+            dims: detailDims.value,
+            weight: detailWeight.value,
+            link: detailLink.value,
             img: detailImgPreview.src !== window.location.href ? detailImgPreview.src : null,
-            stableName: nameKey
+            stableName: stableName
         };
 
         const partsForCloud = {};
@@ -337,13 +305,11 @@ function setupDetailPanelLogic() {
         const success = await saveProjectData(currentFileName, partsForCloud, notesInput.value);
 
         if (success) {
-            btnSaveDetail.innerText = "✅ GUARDADO";
-            dbMsg.innerText = "Ultimo guardado: " + new Date().toLocaleTimeString();
+            btnSaveDetail.innerText = "✅ GUARDADO"; dbMsg.innerText = "Guardado OK " + new Date().toLocaleTimeString();
         } else {
-            btnSaveDetail.innerText = "❌ ERROR DB";
-            dbMsg.innerText = "Error permisos DB";
+            btnSaveDetail.innerText = "❌ ERROR DB"; dbMsg.innerText = "Error permisos DB";
         }
-        setTimeout(() => btnSaveDetail.innerText = "💾 GUARDAR FICHA", 2000);
+        setTimeout(() => btnSaveDetail.innerText = "💾 GUARDAR", 2000);
     };
 }
 
@@ -356,13 +322,21 @@ function updateDetailPanel() {
     if (!selectedObject) { detailContent.style.display = 'none'; emptyMsg.style.display = 'block'; return; }
     detailContent.style.display = 'block'; emptyMsg.style.display = 'none';
     const uuid = selectedObject.uuid;
-    const name = selectedObject.name || "Objeto Sin Nombre";
-    detailName.value = name;
+
+    // Recuperar datos o usar default
     if (partsData[uuid]) {
+        detailName.value = partsData[uuid].customName || selectedObject.name; // Usar custom si existe
         detailDesc.value = partsData[uuid].desc || "";
+        detailDims.value = partsData[uuid].dims || "";
+        detailWeight.value = partsData[uuid].weight || "";
+        detailLink.value = partsData[uuid].link || "";
         setDetailImage(partsData[uuid].img);
     } else {
+        detailName.value = selectedObject.name;
         detailDesc.value = "";
+        detailDims.value = "";
+        detailWeight.value = "";
+        detailLink.value = "";
         setDetailImage(null);
     }
 }
@@ -401,7 +375,6 @@ function setupModeButtons() {
 function captureTransparentView() {
     if (!renderer) return;
     const oldBg = scene.background; const oldFog = scene.fog; const grid = scene.getObjectByName('floor_grid');
-    // Hide tech card for screenshot also
     const wasVisible = techCard.classList.contains('visible');
     closeTechCard();
 
@@ -409,8 +382,6 @@ function captureTransparentView() {
     renderer.render(scene, camera);
     const dataURL = renderer.domElement.toDataURL('image/png');
     scene.background = oldBg; scene.fog = oldFog; if (grid) grid.visible = true;
-
-    // Restore tech card if it was open
     if (wasVisible) showTechCard(selectedObject);
 
     printImg.src = dataURL; printFile.textContent = currentFileName; printDate.textContent = new Date().toLocaleDateString();
@@ -421,10 +392,34 @@ function captureTransparentView() {
     if (keys.length > 0) {
         keys.forEach(uuid => {
             const part = partsData[uuid];
-            if (!part.name && !part.desc) return;
+            if (!part.customName && !part.desc) return; // Si no editó nada, no imprimir
+
             const card = document.createElement('div'); card.className = 'print-card';
             const imgHTML = part.img ? `<img src="${part.img}">` : '';
-            card.innerHTML = `${imgHTML}<div class="print-card-content"><div class="print-card-title">${part.name}</div><div class="print-card-desc">${part.desc}</div></div>`;
+            const nameToUse = part.customName || part.stableName;
+
+            // Meta HTML para impresión
+            let metaHTML = '';
+            if (part.dims || part.weight) {
+                metaHTML = `<div class="print-card-meta">
+                    ${part.dims ? `📏 ${part.dims} ` : ''} 
+                    ${part.weight ? `⚖️ ${part.weight}` : ''}
+                </div>`;
+            }
+            let linkHTML = '';
+            if (part.link) {
+                linkHTML = `<a href="${part.link}" class="print-card-link" target="_blank">🛒 Ver Link de Compra</a>`;
+            }
+
+            card.innerHTML = `
+                ${imgHTML}
+                <div class="print-card-content">
+                    <div class="print-card-title">${nameToUse}</div>
+                    <div class="print-card-desc">${part.desc}</div>
+                    ${metaHTML}
+                    ${linkHTML}
+                </div>
+            `;
             printDetailsGrid.appendChild(card);
         });
     }
@@ -439,7 +434,6 @@ function onWindowResize() {
     renderer.setSize(container.clientWidth, container.clientHeight);
 }
 function animate() {
-    requestAnimationFrame(animate);
-    renderer.render(scene, camera);
-    if (selectedObject && techCard.classList.contains('visible')) updateTechCardPosition(); // Live update
+    requestAnimationFrame(animate); renderer.render(scene, camera);
+    if (selectedObject && techCard.classList.contains('visible')) updateTechCardPosition();
 }

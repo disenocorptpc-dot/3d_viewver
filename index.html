@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visor Técnico - Engine Core v5.1</title>
+    <title>Visor Técnico - Engine Core v5.2</title>
     <link rel="stylesheet" href="styles.css">
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap"
@@ -25,17 +25,32 @@
     <!-- TOOLTIP SIMPLE (HOVER) -->
     <div id="floating-label" class="label-3d no-print">Part Name</div>
 
-    <!-- TARJETA DE INFORMACIÓN (CLICK) -->
+    <!-- TARJETA HOLOGRÁFICA (CLICK) -->
     <div id="tech-card" class="tech-card-3d no-print" style="display: none;">
         <div class="card-header">
             <span id="card-title">NOMBRE PIEZA</span>
             <button id="close-card-btn">×</button>
         </div>
         <div class="card-body">
-            <div id="card-img-container" class="card-img-frame">
+            <div id="card-img-container" class="card-img-frame" style="display:none">
                 <img id="card-img" src="">
             </div>
+
+            <!-- DATOS NUEVOS EN TARJETA -->
+            <div class="card-specs">
+                <div id="card-dims-row" class="spec-row">
+                    <span class="icon">📏</span> <span id="card-dims">-</span>
+                </div>
+                <div id="card-weight-row" class="spec-row">
+                    <span class="icon">⚖️</span> <span id="card-weight">-</span>
+                </div>
+            </div>
+
             <p id="card-desc">Descripción técnica...</p>
+
+            <a id="card-link" href="#" target="_blank" class="card-buy-btn" style="display:none">
+                🛒 COMPRAR / VER ONLINE
+            </a>
         </div>
     </div>
 
@@ -65,7 +80,7 @@
     <div class="app-container no-print">
 
         <header class="top-bar">
-            <div class="logo"><span class="icon">💠</span> ENGINE<b>CORE</b>_V5.1</div>
+            <div class="logo"><span class="icon">💠</span> ENGINE<b>CORE</b>_V5.2</div>
             <div class="actions">
                 <button class="btn-tech" id="btn-screenshot">📸 Capturar</button>
                 <button class="btn-primary" onclick="window.print()">🖨️ Imprimir</button>
@@ -103,7 +118,6 @@
                     <div class="crosshair"></div>
                     <p>ARRASTRA TU .GLB AQUÍ</p>
                 </div>
-                <!-- SLIDER -->
                 <div class="viewer-controls glass-panel">
                     <span style="font-size: 0.8rem; color: var(--text-secondary);">EXPLOSIÓN:</span>
                     <input type="range" id="explosion-slider" min="0" max="100" value="0" class="tech-slider">
@@ -111,7 +125,7 @@
                 </div>
             </section>
 
-            <!-- FICHA TÉCNICA (DERECHA) -->
+            <!-- PANEL DE EDICIÓN MEJORADO -->
             <section class="detail-panel glass-panel" id="detail-panel">
                 <div class="panel-header">
                     <h2>EDICIÓN FICHA</h2>
@@ -122,10 +136,13 @@
                     </p>
                 </div>
                 <div id="part-details-content" style="display:none;">
+
                     <div class="detail-group">
-                        <label>PIEZA:</label>
-                        <input type="text" id="detail-name" readonly class="tech-input static">
+                        <label>NOMBRE PIEZA (EDITABLE):</label>
+                        <!-- AHORA ES EDITABLE -->
+                        <input type="text" id="detail-name" class="tech-input">
                     </div>
+
                     <div class="detail-group">
                         <label>FOTO REAL (Click/Paste):</label>
                         <div class="image-upload-zone" id="detail-img-zone">
@@ -134,11 +151,31 @@
                             <input type="file" id="detail-img-input" accept="image/*" hidden>
                         </div>
                     </div>
-                    <div class="detail-group">
-                        <label>DATOS TÉCNICOS:</label>
-                        <textarea id="detail-desc" class="tech-input" placeholder="Material, medidas..."></textarea>
+
+                    <!-- NUEVOS CAMPOS TÉCNICOS -->
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div class="detail-group">
+                            <label>MEDIDAS:</label>
+                            <input type="text" id="detail-dims" class="tech-input" placeholder="Ej: 20x30 mm">
+                        </div>
+                        <div class="detail-group">
+                            <label>PESO:</label>
+                            <input type="text" id="detail-weight" class="tech-input" placeholder="Ej: 15g">
+                        </div>
                     </div>
-                    <div class="detail-actions">
+
+                    <div class="detail-group">
+                        <label>DESCRIPCIÓN:</label>
+                        <textarea id="detail-desc" class="tech-input" style="height:60px"
+                            placeholder="Detalles técnicos..."></textarea>
+                    </div>
+
+                    <div class="detail-group">
+                        <label>LINK COMPRA / URL:</label>
+                        <input type="text" id="detail-link" class="tech-input" placeholder="https://...">
+                    </div>
+
+                    <div class="detail-actions" style="margin-top: auto;">
                         <button class="btn-tech" id="btn-save-detail" style="width:100%">💾 GUARDAR</button>
                     </div>
                     <div class="db-status" id="db-msg"
