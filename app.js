@@ -532,12 +532,35 @@ function printTechnicalSheet() {
     printDate.textContent = new Date().toLocaleDateString();
 
     const sharedLink = window.location.origin + window.location.pathname + "?project=" + sanitizeName(currentFileName);
+
+    // Preparar contenedor de notas con espacio para QR
     printNotesDst.innerHTML = `
-        <strong>Observaciones:</strong><br>${notesInput.value.trim() || "Sin observaciones registradas."}<br><br>
-        <div style="font-size:0.8em; color:#666; border:1px solid #ccc; padding:5px; display:inline-block;">
-            🔗 <strong>Enlace Digital:</strong><br>${sharedLink}
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div style="flex:1; padding-right:20px;">
+                <strong>Observaciones:</strong><br>${notesInput.value.trim() || "Sin observaciones registradas."}
+            </div>
+            <div style="text-align:center;">
+                <div id="print-qrcode" style="margin-bottom:5px;"></div>
+                <div style="font-size:0.6em; color:#666; max-width:120px; overflow-wrap:break-word;">
+                    ${sharedLink}
+                </div>
+            </div>
         </div>
     `;
+
+    // Generar QR Real
+    const qrContainer = document.getElementById('print-qrcode');
+    if (qrContainer && window.QRCode) {
+        qrContainer.innerHTML = ""; // Limpiar previos
+        new QRCode(qrContainer, {
+            text: sharedLink,
+            width: 100,
+            height: 100,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    }
 
     // 3. GENERAR GRILLA DE PARTES
     printDetailsGrid.innerHTML = '';
