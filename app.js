@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { saveProjectData, loadProjectData } from './db_manager.js';
+import { openDB } from 'https://unpkg.com/idb?module'; // Helper ligera para IndexedDB
 
 // --- CONFIG ---
 const BG_COLOR = 0x0f1115;
@@ -54,10 +55,15 @@ const printDetailsGrid = document.getElementById('print-details-section');
 
 let controls;
 
+// --- INDEXED DB (CACHE) ---
+async function initDB() { return openDB('EngineCoreDB', 1, { upgrade(db) { db.createObjectStore('models'); } }); }
+async function cacheModel(file) { const db = await initDB(); await db.put('models', file, 'lastModel'); }
+async function getCachedModel() { const db = await initDB(); return await db.get('models', 'lastModel'); }
+
 init();
 animate();
 
-function init() {
+async function init() {
     const container = document.getElementById('scene-container');
     scene = new THREE.Scene();
     scene.background = new THREE.Color(BG_COLOR);
@@ -72,22 +78,23 @@ function init() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Suave
     container.appendChild(renderer.domElement);
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2); scene.add(hemiLight);
 
-    // HEADLAMP
+    // HEADLAMP (Sombra ajustada para evitar artifacts)
     const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
     dirLight.position.set(0, 0, 1);
+    dirLight.castShadow = true;
+    dirLight.shadow.bias = -0.001; // Fix sombras raras
     camera.add(dirLight);
     scene.add(camera);
 
     const grid = new THREE.GridHelper(500, 50, 0x333333, 0x111111); grid.name = "floor_grid"; scene.add(grid);
 
     controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; controls.dampingFactor = 0.05;
-    controls.update();
+    controls.enableDamping = true; controls.dampingFactor = 0.05; controls.update();
 
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
@@ -120,14 +127,23 @@ function init() {
     });
 
     notesInput.addEventListener('change', () => { if (currentFileName !== "Sin Archivo") saveProjectData(currentFileName, partsData, notesInput.value); });
+
+    // --- AUTO RELOAD CACHE ---
+    const cachedFile = await getCachedModel();
+    if (cachedFile) {
+        console.log("Restaurando modelo desde caché...");
+        loadLocalFile(cachedFile, true); // true = isCached
+    }
 }
 
-function loadLocalFile(file) {
+function loadLocalFile(file, isCached = false) {
+    if (!isCached) cacheModel(file); // Guardar para F5 futuro
+
     const url = URL.createObjectURL(file);
     const loader = new GLTFLoader();
 
     currentFileName = file.name;
-    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "PROCESANDO...";
+    loadingDiv.style.display = 'flex'; loadingDiv.querySelector('p').innerText = "PROCESANDO & SUAVIZANDO...";
 
     loader.load(url, async function (gltf) {
         if (currentModel) { scene.remove(currentModel); mixer = null; allActions = []; originalMaterials.clear(); hideLabel(); closeTechCard(); }
@@ -141,6 +157,12 @@ function loadLocalFile(file) {
         model.traverse(function (obj) {
             if (obj.isMesh) {
                 obj.castShadow = true; obj.receiveShadow = true;
+
+                // SOLUCIÓN SOMBRAS RARAS: Recalcular normales para suavizar facetas
+                if (obj.geometry) {
+                    obj.geometry.computeVertexNormals();
+                }
+
                 if (obj.material) originalMaterials.set(obj.uuid, obj.material);
                 obj.userData.originalName = obj.name;
             }
@@ -150,19 +172,12 @@ function loadLocalFile(file) {
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
         model.position.sub(center);
-
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-
-        let scaleFactor = 1.0;
-        if (maxDim > 0) {
-            scaleFactor = 10.0 / maxDim;
-        }
+        let scaleFactor = 1.0; if (maxDim > 0) scaleFactor = 10.0 / maxDim;
         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-        camera.position.set(12, 12, 12);
-        controls.target.set(0, 0, 0);
-        controls.update();
+        camera.position.set(12, 12, 12); controls.target.set(0, 0, 0); controls.update();
 
         loadingDiv.querySelector('p').innerText = "SINCRONIZANDO DB...";
         const cloudData = await loadProjectData(currentFileName);
@@ -171,18 +186,12 @@ function loadLocalFile(file) {
             notesInput.value = cloudData.notes || "";
             const cloudParts = cloudData.parts || {};
             model.traverse((obj) => {
-                if (obj.isMesh && cloudParts[obj.name]) {
-                    partsData[obj.uuid] = cloudParts[obj.name];
-                }
+                if (obj.isMesh && cloudParts[obj.name]) { partsData[obj.uuid] = cloudParts[obj.name]; }
             });
             dbMsg.innerText = "Sincronizado con Nube ✅";
-        } else {
-            notesInput.value = "";
-            dbMsg.innerText = "Proyecto Nuevo";
-        }
+        } else { notesInput.value = ""; dbMsg.innerText = "Proyecto Nuevo"; }
 
         generateLayersUI(model);
-
         loadingDiv.style.display = 'none'; document.getElementById('system-status').innerText = `Modelo: ${file.name}`;
 
         if (gltf.animations.length > 0) {
@@ -192,7 +201,7 @@ function loadLocalFile(file) {
         }
         URL.revokeObjectURL(url);
 
-        // Clay mode default
+        // Default to Clay (Random Pastel)
         setTimeout(() => { btnClay.click(); }, 150);
 
     }, undefined, (err) => { console.error(err); });
@@ -203,7 +212,6 @@ function generateLayersUI(model) {
     const objects = [];
     model.traverse(child => { if (child.isMesh) objects.push(child); });
     if (objects.length === 0) { layersList.innerHTML = '<p style="font-size:0.7rem; color:#666">No se detectaron capas.</p>'; return; }
-
     objects.sort((a, b) => a.name.localeCompare(b.name));
 
     const groups = {};
@@ -221,8 +229,6 @@ function generateLayersUI(model) {
             const toggleIcon = document.createElement('span'); toggleIcon.className = 'group-toggle-icon'; toggleIcon.innerText = '▶';
             const check = document.createElement('input'); check.type = 'checkbox'; check.checked = true; check.className = 'layer-check';
             const title = document.createElement('span'); title.innerText = `${baseName} (${groupObjs.length})`;
-            title.className = 'group-title'; // Identificador para updates
-            title.dataset.basename = baseName;
 
             header.onclick = (e) => { if (e.target === check) return; content.classList.toggle('open'); toggleIcon.classList.toggle('open'); };
             check.onchange = (e) => { const state = e.target.checked; groupObjs.forEach(obj => obj.visible = state); content.querySelectorAll('input').forEach(chk => chk.checked = state); };
@@ -251,16 +257,16 @@ function createLayerItem(obj, isRoot) {
     return div;
 }
 
-// UPDATE EN TIEMPO REAL (V5.10)
 function updateLayerNameInList(uuid, newName) {
-    // Buscar la etiqueta especifica
-    const itemLabel = layersList.querySelector(`.layer-item[data-uuid="${uuid}"] .layer-name`);
-    if (itemLabel) {
-        itemLabel.innerText = newName;
-        // Animación sutil
-        itemLabel.style.color = "#00f0ff";
-        setTimeout(() => { itemLabel.style.color = ""; }, 500);
-    }
+    // 1. Update text
+    const items = layersList.querySelectorAll(`.layer-item[data-uuid="${uuid}"] .layer-name`);
+    items.forEach(item => {
+        item.innerText = newName;
+        // Animation
+        item.style.color = "#00f0ff";
+        item.style.textShadow = "0 0 5px #00f0ff";
+        setTimeout(() => { item.style.color = ""; item.style.textShadow = ""; }, 800);
+    });
 }
 
 function setupLayersLogic() {
@@ -365,7 +371,7 @@ function setupModeButtons() {
         if (!currentModel) return;
         const matWire = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true });
 
-        // --- PRO CLAY PALETTE (Grises técnicos) ---
+        // --- COLORES PASTEL RANDOM (Smart Pastel) ---
         const colorMap = new Map();
 
         currentModel.traverse((obj) => {
@@ -375,11 +381,18 @@ function setupModeButtons() {
                     let randColor;
                     if (colorMap.has(obj.uuid)) { randColor = colorMap.get(obj.uuid); }
                     else {
-                        const h = 0.6; const s = 0.05 + Math.random() * 0.1; const l = 0.4 + Math.random() * 0.4;
+                        // PASTEL ALEATORIO
+                        const h = Math.random();
+                        const s = 0.5 + Math.random() * 0.2;
+                        const l = 0.6 + Math.random() * 0.2;
                         randColor = new THREE.Color().setHSL(h, s, l);
                         colorMap.set(obj.uuid, randColor);
                     }
-                    obj.material = new THREE.MeshStandardMaterial({ color: randColor, roughness: 0.6, metalness: 0.2 });
+                    obj.material = new THREE.MeshStandardMaterial({
+                        color: randColor,
+                        roughness: 0.8,
+                        metalness: 0.1
+                    });
                 }
                 else if (mode === 'WIRE') { obj.material = matWire; }
             }
