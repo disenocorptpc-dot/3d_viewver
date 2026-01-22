@@ -42,28 +42,42 @@ export async function saveModelAsChunks(file, rawFileName) {
         });
 
         // 2. Preparar chunks
+        // 2. Preparar chunks y batch
         const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
-        const batch = writeBatch(db);
+        let batch = writeBatch(db);
+        let batchCount = 0;
+        const BATCH_SIZE_LIMIT = 10; // 10 chunks * 900KB ~= 9MB (Seguro bajo 10MB)
+
         const projRef = doc(db, "proyectos_3d", docId);
         const chunksCol = collection(projRef, "chunks");
 
-        // (Opcional: borrar antiguos si hubiera, para evitar mezclas. 
-        //  Por ahora asumimos sobrescritura limpia o proyecto nuevo)
+        console.log(`📡 Iniciando subida de ${totalChunks} fragmentos en lotes...`);
 
         for (let i = 0; i < totalChunks; i++) {
             const start = i * CHUNK_SIZE;
             const end = start + CHUNK_SIZE;
             const chunkContent = base64Data.substring(start, end);
 
-            // ID: 000, 001... para asegurar orden por si acaso
+            // ID: 0000, 0001... para asegurar orden
             const chunkId = i.toString().padStart(4, '0');
             const chunkRef = doc(chunksCol, chunkId);
 
             batch.set(chunkRef, { index: i, data: chunkContent });
+            batchCount++;
+
+            // Si alcanzamos el límite del lote, enviamos y creamos uno nuevo
+            if (batchCount >= BATCH_SIZE_LIMIT) {
+                await batch.commit();
+                console.log(`...Lote subido (chunk ${i})`);
+                batch = writeBatch(db);
+                batchCount = 0;
+            }
         }
 
-        // 3. Ejecutar subida de chunks
-        await batch.commit();
+        // 3. Subir remanentes
+        if (batchCount > 0) {
+            await batch.commit();
+        }
 
         // 4. Guardar metadatos base
         await setDoc(projRef, {
