@@ -216,6 +216,23 @@ function loadGLB(url, fileName) {
         model.traverse(function (obj) {
             if (obj.isMesh) {
                 obj.castShadow = true; obj.receiveShadow = true;
+
+                // --- SEGURIDAD DE TEXTURAS (Prevent Crash) ---
+                if (obj.material) {
+                    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+                    mats.forEach(m => {
+                        ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'].forEach(key => {
+                            if (m[key] && m[key].image) {
+                                if (m[key].image.width > 4096 || m[key].image.height > 4096) {
+                                    console.warn(`⚠️ Textura GIGANTE detectada (${m[key].image.width}x${m[key].image.height}) en ${obj.name}. Eliminando para evitar crash.`);
+                                    m[key].dispose();
+                                    m[key] = null; // Desvincular
+                                }
+                            }
+                        });
+                    });
+                }
+
                 if (obj.material) originalMaterials.set(obj.uuid, obj.material);
                 obj.userData.originalName = obj.name;
             }
