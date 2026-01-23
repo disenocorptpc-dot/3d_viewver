@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { saveProjectData, loadProjectData, saveModelAsChunks, loadModelFromChunks, getAllProjects, deleteProject, sanitizeName } from './db_manager.js';
 
 // --- CONFIG ---
@@ -192,6 +193,11 @@ function loadModelFromURL(url) {
 
 function loadGLB(url, fileName) {
     const loader = new GLTFLoader();
+
+    // Configurar Draco
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
+    loader.setDRACOLoader(dracoLoader);
 
     loadingDiv.querySelector('p').innerText = "PROCESANDO GEOMETRÍA...";
 
