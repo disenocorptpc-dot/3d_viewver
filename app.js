@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { PMREMGenerator } from 'three/src/extras/PMREMGenerator.js';
 import { saveProjectData, loadProjectData, saveModelAsChunks, loadModelFromChunks, getAllProjects, deleteProject, sanitizeName } from './db_manager.js';
 
 // --- CONFIG ---
@@ -106,11 +108,13 @@ async function init() {
     window.addEventListener('dragleave', (e) => { loadingDiv.style.display = 'none'; }, false);
     window.addEventListener('drop', (e) => { e.preventDefault(); loadingDiv.style.display = 'none'; if (e.dataTransfer.files[0]) handleNewFile(e.dataTransfer.files[0]); }, false);
 
+    // Eventos
     setupModeButtons();
     setupDetailPanelLogic();
     setupTechCardLogic();
     setupLayersLogic();
     setupProjectManager();
+    setupLightingControls(); // Nuevo control de luces
 
     // Actualizar botones a nuevas funciones
     // Actualizar botones a nuevas funciones
@@ -714,6 +718,85 @@ async function loadProjectByDocId(docId) {
         else if (data.modelUrl) {
             loadModelFromURL(data.modelUrl);
         }
+    }
+}
+
+// --- ILUMINACIÓN (V5.15) ---
+function setupLightingControls() {
+    const lightingSelect = document.getElementById('lighting-select');
+    if (lightingSelect) {
+        lightingSelect.addEventListener('change', (e) => {
+            updateLighting(e.target.value);
+        });
+    }
+}
+
+function updateLighting(mode) {
+    // 1. Limpiar luces existentes (excepto Grid y Helpers si los hubiera)
+
+    // Resetear environment
+    scene.environment = null;
+    renderer.toneMappingExposure = 1.2;
+
+    // Buscar y eliminar luces antiguas (por nombre o tipo)
+    const lightsToRemove = [];
+    scene.traverse((obj) => {
+        if (obj.isLight || (obj.name && obj.name.startsWith("studio_"))) {
+            lightsToRemove.push(obj);
+        }
+    });
+    // También la luz de cámara
+    camera.children.forEach(child => {
+        if (child.isLight) camera.remove(child);
+    });
+    lightsToRemove.forEach(l => scene.remove(l));
+
+
+    // 2. Aplicar nuevo modo
+    if (mode === 'inspection') {
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
+        dirLight.position.set(0, 0, 1);
+        dirLight.castShadow = true;
+        // Configs de sombra
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        dirLight.shadow.bias = -0.0001;
+        camera.add(dirLight); // Luz pegada a la cámara
+    }
+    else if (mode === 'studio') {
+        const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambient);
+
+        // Key Light
+        const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+        keyLight.position.set(5, 10, 7);
+        keyLight.castShadow = true;
+        keyLight.name = "studio_key";
+        scene.add(keyLight);
+
+        // Fill Light
+        const fillLight = new THREE.DirectionalLight(0xccddff, 1.0);
+        fillLight.position.set(-5, 5, 5);
+        fillLight.name = "studio_fill";
+        scene.add(fillLight);
+
+        // Rim Light
+        const rimLight = new THREE.DirectionalLight(0xffaa00, 1.0);
+        rimLight.position.set(0, 5, -10);
+        rimLight.name = "studio_rim";
+        scene.add(rimLight);
+    }
+    else if (mode === 'env') {
+        // RoomEnvironment
+        const pmremGenerator = new PMREMGenerator(renderer);
+        pmremGenerator.compileEquirectangularShader();
+        const roomEnvironment = new RoomEnvironment();
+        scene.environment = pmremGenerator.fromScene(roomEnvironment).texture;
+        // Opcional: bajar un poco exposición si brilla mucho
+        renderer.toneMappingExposure = 1.0;
     }
 }
 
