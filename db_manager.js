@@ -24,7 +24,7 @@ try {
 // FUNCIONES PÚBLICAS
 
 // --- SECUENCIA DE FRAGMENTACIÓN (CHUNKING) PARA FIRESTORE ---
-const CHUNK_SIZE = 900 * 1024; // ~900KB
+const CHUNK_SIZE = 500 * 1024; // ~500KB (Reducido para evitar congedamientos)
 
 export async function saveModelAsChunks(file, rawFileName) {
     if (!isConnected || !db) return { success: false, error: "DB no conectada" };
@@ -41,17 +41,16 @@ export async function saveModelAsChunks(file, rawFileName) {
             reader.readAsDataURL(file);
         });
 
-        // 2. Preparar chunks
         // 2. Preparar chunks y batch
         const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
         let batch = writeBatch(db);
         let batchCount = 0;
-        const BATCH_SIZE_LIMIT = 10; // 10 chunks * 900KB ~= 9MB (Seguro bajo 10MB)
+        const BATCH_SIZE_LIMIT = 5; // Lotes pequeños (2.5MB) para estabilidad
 
         const projRef = doc(db, "proyectos_3d", docId);
         const chunksCol = collection(projRef, "chunks");
 
-        console.log(`📡 Iniciando subida de ${totalChunks} fragmentos en lotes...`);
+        console.log(`📡 Iniciando subida de ${totalChunks} fragmentos (Modo Lento Seguro)...`);
 
         for (let i = 0; i < totalChunks; i++) {
             const start = i * CHUNK_SIZE;
@@ -69,6 +68,7 @@ export async function saveModelAsChunks(file, rawFileName) {
             if (batchCount >= BATCH_SIZE_LIMIT) {
                 await batch.commit();
                 console.log(`...Lote subido (chunk ${i})`);
+                await new Promise(r => setTimeout(r, 200)); // Pausa 200ms
                 batch = writeBatch(db);
                 batchCount = 0;
             }
