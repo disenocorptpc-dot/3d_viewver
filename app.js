@@ -3,7 +3,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { PMREMGenerator } from 'three/src/extras/PMREMGenerator.js';
 import { saveProjectData, loadProjectData, saveModelAsChunks, loadModelFromChunks, getAllProjects, deleteProject, sanitizeName } from './db_manager.js';
 
 // --- CONFIG ---
@@ -791,7 +790,7 @@ function updateLighting(mode) {
     }
     else if (mode === 'env') {
         // RoomEnvironment
-        const pmremGenerator = new PMREMGenerator(renderer);
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
         pmremGenerator.compileEquirectangularShader();
         const roomEnvironment = new RoomEnvironment();
         scene.environment = pmremGenerator.fromScene(roomEnvironment).texture;
